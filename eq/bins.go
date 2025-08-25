@@ -1,91 +1,98 @@
 package eq
 
 import (
-	"fmt"
 	"math"
 )
 
-type Bins interface {
-	Len() int
-	Bounds(binidx int) (float64, float64)
-	weight(srclo, srchi, destlo, desthi float64) float64
+type Bins struct {
+	len           int
+	bounds        []float64
+	isExponential bool
 }
 
-type Linear struct {
-	StartHz, StopHz, StepHz float64
+func (b *Bins) Len() int {
+	return b.len
 }
 
-func (lb Linear) Len() int {
-	return int((lb.StopHz - lb.StartHz) / lb.StepHz)
-}
-
-func (lb Linear) Bounds(binidx int) (lo, hi float64) {
-	if binidx >= lb.Len() || binidx < 0 {
+func (b *Bins) Bounds(i int) (float64, float64) {
+	if i < 0 || i >= b.len {
 		return -1, -1
 	}
-	return lb.StartHz + (lb.StepHz * float64(binidx)), lb.StartHz + (lb.StepHz * float64(binidx+1))
+	return b.bounds[i], b.bounds[i+1]
 }
 
-func (lb Linear) weight(srclo, srchi, destlo, desthi float64) float64 {
-	return overlapRatio(srclo, srchi, destlo, desthi)
-}
-
-type Exponential struct {
-	StartHz, StopHz float64
-	NumBins         int
-}
-
-func (eb Exponential) Len() int {
-	return eb.NumBins
-}
-
-func (eb Exponential) Bounds(binidx int) (lo, hi float64) {
-	if binidx < 0 || binidx > eb.NumBins {
-		return -1, -1
+func LinearBins(start, stop float64, len int) Bins {
+	step := (stop - start) / float64(len)
+	b := make([]float64, len+1)
+	for i := range len + 1 {
+		b[i] = start + float64(i)*step
 	}
-	// TODO: cache?
-	xstart := log(float64(eb.StartHz))
-	xend := log(float64(eb.StopHz))
-	xstep := (xend - xstart) / float64(eb.NumBins)
+	return Bins{
+		len:           len,
+		bounds:        b,
+		isExponential: false,
+	}
+}
 
-	xlo := xstart + float64(binidx)*xstep
-	xhi := xstart + float64(binidx+1)*xstep
+func ExponentialBins(start, stop float64, len int) Bins {
+	xstart := log(start)
+	xend := log(stop)
+	xstep := (xend - xstart) / float64(len)
 
-	// TODO: pre-compute for arbitrary bins
+	b := make([]float64, len+1)
+	for i := range len + 1 {
+		x := xstart + float64(i)*xstep
+		b[i] = math.Pow(10, x)
+	}
+	return Bins{
+		len:           len,
+		bounds:        b,
+		isExponential: true,
+	}
+}
 
-	// TODO: try power 2 or power e instead?
-	return math.Pow(10, xlo), math.Pow(10, xhi)
+func ArbitraryBins(bounds ...float64) Bins {
+	return Bins{
+		len:           len(bounds) - 1,
+		bounds:        bounds,
+		isExponential: false,
+	}
+}
+
+func (b Bins) toExponential() Bins {
+	bb := make([]float64, b.len+1)
+	for i := range b.len + 1 {
+		bb[i] = log(b.bounds[i])
+	}
+	return Bins{
+		len:    b.len,
+		bounds: bb,
+	}
 }
 
 func log(v float64) float64 {
 	if v == 0 {
 		return 0
 	}
-	return math.Log10(v)
+	return math.Log10(v) // TODO: log2? logE?
 }
 
-func (eb Exponential) weight(srclo, srchi, destlo, desthi float64) float64 {
-	// TODO: cache?
-	return overlapRatio(log(srclo), log(srchi), log(destlo), log(desthi))
+func weight(i, j int, src, dest Bins) float64 {
+	if dest.isExponential {
+		// operate in exponential mode
+		src = src.toExponential()
+		dest = dest.toExponential()
+	}
+	slo, shi := src.Bounds(i)
+	dlo, dhi := dest.Bounds(j)
+	return overlapRatio(slo, shi, dlo, dhi)
 }
-
-var _ Bins = Linear{}
-var _ Bins = Exponential{}
 
 func resample(fft []float64, src Bins, out []float64, dest Bins) {
-	N := len(fft)
-	B := len(out)
-	if N < B {
-		panic(fmt.Sprintf("bins: upsampling is not supported. N must be >= num bins. N: %v num bins: %v", N, B))
-	}
-	if _, ok := src.(Linear); !ok {
-		panic("bins: src must be linear")
-	}
+	// TODO: matrix multiplication
 	for i, v := range fft {
-		srclo, srchi := src.Bounds(i)
-		for j := range B {
-			destlo, desthi := dest.Bounds(j)
-			w := dest.weight(srclo, srchi, destlo, desthi)
+		for j := range out {
+			w := weight(i, j, src, dest)
 			out[j] += w * v
 		}
 	}

@@ -30,51 +30,29 @@ func TestNForTimeStep(t *testing.T) {
 	assert.Equal(t, 64, NForTimeStep(48_000, 1*time.Millisecond, AtLeast) /* target 48*/)
 }
 
-func TestInit(t *testing.T) {
-	eq := EQ{
-		SampleRate: 48_000,
-		N:          32,
-		OutBins: Exponential{
-			StartHz: 20,
-			StopHz:  20_000,
-			NumBins: 3,
-		},
-	}
+func TestNew(t *testing.T) {
+	eq := New(48_000, 32, 3)
 
+	assert.Equal(t, 48_000, eq.SampleRate)
 	assert.Equal(t, 32, eq.N)
 
-	start, stop := eq.SrcBin().Bounds(0)
-	assert.Equal(t, float64(0), start)
-	assert.Equal(t, float64(1500), stop)
-
-	// assert.InDeltaSlice(t, []float64{20, 200, 2000, 20_000}, eq.exBinBounds, 0.1)
-
-	start, end := eq.BinBounds(1)
+	start, end := eq.OutBins.Bounds(1)
 	assert.InDelta(t, 200, start, 0.1)
 	assert.InDelta(t, 2000, end, 0.1)
 }
 
 func TestDefaultInit(t *testing.T) {
-	eq := DefaultEQ()
-	eq.initEQ()
+	eq := Default()
 
 	assert.Equal(t, 44100, eq.SampleRate, "default")
-	assert.Equal(t, 20, eq.LowerBoundHz, "default to audible range (20 Hz)")
-	assert.Equal(t, 20_000, eq.UpperBoundHz, "default to audible range (20 KHz)")
+	lo, _ := eq.OutBins.Bounds(0)
+	assert.InEpsilon(t, 20, lo, 0.001, "default to audible range (20 Hz)")
+	_, hi := eq.OutBins.Bounds(eq.OutBins.Len() - 1)
+	assert.InEpsilon(t, 20_000, hi, 0.001, "default to audible range (20 KHz)")
 
-	assert.Equal(t, 16, eq.NumBins, "default to 16 EQ bars")
+	assert.Equal(t, 16, eq.OutBins.Len(), "default to 16 EQ bars")
 
 	assert.Equal(t, 2048, eq.N, "default")
-}
-
-func TestIsOverlapping(t *testing.T) {
-	assert.True(t, isOverlapping(0, 43, 20, 30.8))   // b is completely within a
-	assert.False(t, isOverlapping(0, 43, 974, 1500)) // completely disjoint
-	assert.True(t, isOverlapping(15, 25, 10, 20))    // a starts within b
-	assert.True(t, isOverlapping(15, 25, 20, 30))    // a ends within b
-	assert.True(t, isOverlapping(5, 15, 10, 20))     // b starts within a
-	assert.True(t, isOverlapping(15, 25, 10, 20))    // b ends within a
-	assert.True(t, isOverlapping(10, 20, 10, 20))    // a == b
 }
 
 func TestSine(t *testing.T) {
@@ -83,21 +61,21 @@ func TestSine(t *testing.T) {
 
 	defer wv.Close()
 
-	eq := NewEQ(wv.SampleRate(), 16, NForTimeStep(wv.SampleRate(), 50*time.Millisecond, AtMost))
+	eq := New(wv.SampleRate(), NForTimeStep(wv.SampleRate(), 50*time.Millisecond, AtMost), 16)
 
 	p := make([]float64, eq.N)
 	n, err := wv.ReadMono(p)
 	failIfErr(t, err)
 	assert.Equal(t, n, len(p))
 
-	out := make([]float64, eq.NumBins)
+	out := make([]float64, eq.OutBins.Len())
 	eq.Compute(p, out)
 
-	assert.Equal(t, eq.NumBins, len(out))
+	assert.Equal(t, eq.OutBins.Len(), len(out))
 
 	t.Log(out)
 	for i, v := range out {
-		s, e := eq.BinBounds(i)
+		s, e := eq.OutBins.Bounds(i)
 		// TODO: how to compute these expected magnitudes?
 		if s <= 440 && e > 440 {
 			assert.Greater(t, v, 0.8)
@@ -113,7 +91,7 @@ func TestEnergyConservation(t *testing.T) {
 
 	defer wv.Close()
 
-	eq := NewEQ(wv.SampleRate(), 16, NForTimeStep(wv.SampleRate(), 50*time.Millisecond, AtMost))
+	eq := New(wv.SampleRate(), NForTimeStep(wv.SampleRate(), 50*time.Millisecond, AtMost), 16)
 
 	p := make([]float64, eq.N)
 	n, err := wv.ReadMono(p)
@@ -132,41 +110,4 @@ func TestEnergyConservation(t *testing.T) {
 	realFFT(p, out)
 
 	assert.InDelta(t, 0.707*0.4, rms(out), 0.01)
-}
-
-func TestGetWeight(t *testing.T) {
-	// l:[21.533203125  43.06640625]	e:[3556.558820077839. 5476.839268528712]	w: -6.367775273051676	v: -2.1567005054830806
-	assert.GreaterOrEqual(t, getWeight(21.5, 43, 3556.6, 5476.8), float64(0))
-	assert.LessOrEqual(t, getWeight(21.5, 43, 3556.6, 5476.8), float64(1))
-
-	lbins := []float64{0, 3000, 6000, 9000, 12000, 15000, 18000, 21000, 24000, 27000, 30000, 33000, 36000, 39000, 42000, 45000, 48000}
-	ebins := []float64{20, 200, 2000, 20000}
-
-	results := make([]float64, 0)
-	for l := range len(lbins) - 1 {
-		for e := range len(ebins) - 1 {
-			w := getWeight(lbins[l], lbins[l+1], ebins[e], ebins[e+1])
-			results = append(results, w)
-		}
-	}
-
-	t.Log(results)
-	assert.InDeltaSlice(t, []float64{
-		0.2875942272, 0.2875942272, 0.05064282956,
-		0, 0, 1,
-		0, 0, 1,
-		0, 0, 1,
-		0, 0, 1,
-		0, 0, 1,
-		0, 0, 0.6834904379,
-		0, 0, 0,
-		0, 0, 0,
-		0, 0, 0,
-		0, 0, 0,
-		0, 0, 0,
-		0, 0, 0,
-		0, 0, 0,
-		0, 0, 0,
-		0, 0, 0,
-	}, results, 0.01)
 }

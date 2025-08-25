@@ -40,32 +40,20 @@ func NForTimeStep(sampleRate int, step time.Duration, mode StepMode) int {
 	return n
 }
 
-func DefaultEQ() EQ {
+func Default() EQ {
 	return EQ{
 		SampleRate: 44100,
 		N:          2048,
-		OutBins: Exponential{
-			NumBins: 16,
-			StartHz: 20,
-			StopHz:  20_000,
-		},
+		OutBins:    ExponentialBins(20, 20_000, 16),
 	}
 }
 
-func NewEQ(sampleRate, n, numbins int) EQ {
-	eq := DefaultEQ()
+func New(sampleRate, n, numbins int) EQ {
+	eq := Default()
 	eq.SampleRate = sampleRate
 	eq.N = n
-	eq.OutBins = Exponential{
-		NumBins: numbins,
-		StartHz: 20,
-		StopHz:  20_000,
-	}
+	eq.OutBins = ExponentialBins(20, 20_000, numbins)
 	return eq
-}
-
-func (eq *EQ) SrcBin() Bins {
-	return Linear{StartHz: 0, StopHz: float64(eq.SampleRate), StepHz: float64(eq.SampleRate) / float64(eq.N)}
 }
 
 func realFFT(samples []float64, out []float64) {
@@ -85,15 +73,12 @@ func (eq *EQ) Compute(samples []float64, out []float64) {
 		panic(fmt.Errorf("eq: out must be at least len %v but was %v", eq.OutBins.Len(), len(out)))
 	}
 
-	// for i := range eq.OutBins.Len() {
-	// 	out[i] = 0
-	// }
-
 	transformed := make([]float64, eq.N)
 	realFFT(samples, transformed)
 
 	// re-bin
-	resample(transformed, eq.SrcBin(), out, eq.OutBins)
+	srcBins := LinearBins(0, float64(eq.SampleRate), eq.N)
+	resample(transformed, srcBins, out, eq.OutBins)
 
 	for i := range eq.OutBins.Len() {
 		out[i] /= float64(eq.OutBins.Len()) // normalize energy

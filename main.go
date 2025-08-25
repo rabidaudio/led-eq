@@ -18,7 +18,13 @@ func main() {
 	}
 
 	N := eq.NForTimeStep(wv.SampleRate(), 1*time.Second/60.0 /*60Hz*/, eq.AtLeast)
-	eq := eq.NewEQ(wv.SampleRate(), N, 20)
+	// eq := eq.NewEQ(wv.SampleRate(), N, 20)
+	eq := eq.EQ{
+		SampleRate: wv.SampleRate(),
+		N:          N,
+		// OutBins:    eq.LinearBins(0, 1000, 100)
+		OutBins: eq.ExponentialBins(20, 20_000, 10),
+	}
 
 	speaker.Init(beep.SampleRate(wv.SampleRate()), eq.N)
 

@@ -10,27 +10,36 @@ import (
 )
 
 type TerminalDisplay struct {
-	eq      *EQ
-	compute func(res []float64)
-
-	sl sparkline.Model
+	eq  *EQ
+	msg chan tea.Msg
+	sl  sparkline.Model
 }
 
 type render struct{ data []float64 }
+type done struct{}
 
-func (td *TerminalDisplay) every() tea.Cmd {
-	return tea.Every(td.eq.Timestep, func(t time.Time) tea.Msg {
-		v := make([]float64, td.eq.NumBins)
-		td.compute(v)
-		for i := range v {
-			v[i] = v[i] * 10
-		}
-		return render{data: v}
+var _ tea.Model = done{}
+
+func (done) Init() tea.Cmd {
+	return nil
+}
+
+func (done) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	return done{}, nil
+}
+
+func (done) View() string {
+	return "\n"
+}
+
+func (td *TerminalDisplay) awaitNext() tea.Cmd {
+	return tea.Every(1*time.Second/60.0, func(t time.Time) tea.Msg {
+		return <-td.msg
 	})
 }
 
 func (td *TerminalDisplay) Init() tea.Cmd {
-	return td.every()
+	return td.awaitNext()
 }
 
 func (td *TerminalDisplay) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -38,12 +47,14 @@ func (td *TerminalDisplay) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "q", "ctrl+c":
-			return td, tea.Quit
+			return done{}, tea.Quit
 		}
+	case done:
+		return done{}, tea.Quit
 	case render:
 		td.sl.PushAll(msg.data)
 		td.sl.Draw()
-		return td, td.every()
+		return td, td.awaitNext()
 	}
 	return td, nil
 }
@@ -52,25 +63,31 @@ func (td *TerminalDisplay) View() string {
 	return td.sl.View()
 }
 
+var _ Display = (*TerminalDisplay)(nil)
 var _ tea.Model = (*TerminalDisplay)(nil)
 
-func NewTerminalDisplay(eq *EQ, compute func(res []float64)) *TerminalDisplay {
+func NewTerminalDisplay(eq *EQ) *TerminalDisplay {
 	sl := sparkline.New(eq.NumBins, 10)
-	td := TerminalDisplay{eq: eq, sl: sl, compute: compute}
+	td := TerminalDisplay{eq: eq, sl: sl}
+	td.msg = make(chan tea.Msg, 60)
 	return &td
 }
 
-// func (td *TerminalDisplay) Render(values []float64) error {
-// 	v := make([]float64, len(values))
-// 	for i := range values {
-// 		v[i] = values[i] * 10
-// 	}
-// 	td.c <- render{data: v}
-// 	return nil
-// }
+func (td *TerminalDisplay) Render(values []float64) error {
+	v := make([]float64, len(values))
+	for i := range values {
+		v[i] = values[i] * 10
+	}
+	td.msg <- render{data: v}
+	return nil
+}
+
+func (td *TerminalDisplay) Done() {
+	td.msg <- done{}
+}
 
 func (td *TerminalDisplay) Run() {
-	if _, err := tea.NewProgram(td).Run(); err != nil {
+	if _, err := tea.NewProgram(td, tea.WithFPS(90)).Run(); err != nil {
 		fmt.Println("Error running program:", err)
 		os.Exit(1)
 	}

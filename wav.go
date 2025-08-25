@@ -1,28 +1,23 @@
 package main
 
 import (
-	"os"
+	"io"
 
 	"github.com/faiface/beep"
 	"github.com/faiface/beep/wav"
 )
 
 type WavReader struct {
-	Path string
-
 	fmt beep.Format
-	f   *os.File
-	s   beep.StreamSeekCloser
+	r   io.Reader
+	s   beep.Streamer
 }
 
-func (wv *WavReader) Open() error {
-	f, err := os.Open(wv.Path)
-	if err != nil {
-		return err
-	}
-	wv.f = f
-	wv.s, wv.fmt, err = wav.Decode(wv.f)
-	return err
+func OpenWav(r io.Reader) (wv *WavReader, err error) {
+	wv = &WavReader{}
+	wv.r = r
+	wv.s, wv.fmt, err = wav.Decode(wv.r)
+	return
 }
 
 func (wv *WavReader) SampleRate() int {
@@ -33,14 +28,18 @@ func (wv *WavReader) NumChannels() int {
 	return wv.fmt.NumChannels
 }
 
-func (wv *WavReader) LenSamples() int {
-	return wv.s.Len()
-}
+// func (wv *WavReader) LenSamples() int {
+// 	return wv.s.Len()
+// }
 
 func (wv *WavReader) Read(p [][2]float64) (n int, err error) {
 	n, ok := wv.s.Stream(p)
 	if !ok {
-		return n, wv.s.Err()
+		err = wv.s.Err()
+		if err != nil {
+			return n, err
+		}
+		return n, io.EOF
 	}
 	return n, nil
 }
@@ -54,8 +53,8 @@ func (wv *WavReader) ReadMono(p []float64) (n int, err error) {
 	return n, err
 }
 
-func (wv *WavReader) Close() error {
-	defer wv.f.Close()
+// func (wv *WavReader) Close() error {
+// 	defer wv.f.Close()
 
-	return wv.s.Close()
-}
+// 	return wv.s.Close()
+// }

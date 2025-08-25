@@ -7,10 +7,11 @@ import (
 
 	"github.com/NimbleMarkets/ntcharts/sparkline"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/rabidaudio/led-eq/eq"
 )
 
 type TerminalDisplay struct {
-	eq  *EQ
+	eq  *eq.EQ
 	msg chan tea.Msg
 	sl  sparkline.Model
 }
@@ -66,8 +67,8 @@ func (td *TerminalDisplay) View() string {
 var _ Display = (*TerminalDisplay)(nil)
 var _ tea.Model = (*TerminalDisplay)(nil)
 
-func NewTerminalDisplay(eq *EQ) *TerminalDisplay {
-	sl := sparkline.New(eq.NumBins, 10)
+func NewTerminalDisplay(eq *eq.EQ) *TerminalDisplay {
+	sl := sparkline.New(eq.OutBins.Len(), 10)
 	td := TerminalDisplay{eq: eq, sl: sl}
 	td.msg = make(chan tea.Msg)
 	return &td

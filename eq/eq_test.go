@@ -1,9 +1,11 @@
-package main
+package eq
 
 import (
+	"math"
 	"testing"
 	"time"
 
+	"github.com/rabidaudio/led-eq/wav"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -14,24 +16,38 @@ func failIfErr(t *testing.T, err error) {
 	}
 }
 
+func rms(data []float64) float64 {
+	var sum float64
+	for _, d := range data {
+		sum += d * d
+	}
+	avg := sum / float64(len(data))
+	return math.Sqrt(avg)
+}
+
 func TestNForTimeStep(t *testing.T) {
 	assert.Equal(t, 32, NForTimeStep(48_000, 1*time.Millisecond, AtMost) /* target 48*/)
 	assert.Equal(t, 64, NForTimeStep(48_000, 1*time.Millisecond, AtLeast) /* target 48*/)
 }
 
 func TestInit(t *testing.T) {
-	eq := DefaultEQ()
-	eq.SampleRate = 48_000
-	eq.NumBins = 3
-	eq.N = 32
-	eq.initEQ()
-
-	assert.True(t, eq.initialized)
+	eq := EQ{
+		SampleRate: 48_000,
+		N:          32,
+		OutBins: Exponential{
+			StartHz: 20,
+			StopHz:  20_000,
+			NumBins: 3,
+		},
+	}
 
 	assert.Equal(t, 32, eq.N)
-	assert.Equal(t, float64(1500), eq.linearBinSizeHz)
 
-	assert.InDeltaSlice(t, []float64{20, 200, 2000, 20_000}, eq.exBinBounds, 0.1)
+	start, stop := eq.SrcBin().Bounds(0)
+	assert.Equal(t, float64(0), start)
+	assert.Equal(t, float64(1500), stop)
+
+	// assert.InDeltaSlice(t, []float64{20, 200, 2000, 20_000}, eq.exBinBounds, 0.1)
 
 	start, end := eq.BinBounds(1)
 	assert.InDelta(t, 200, start, 0.1)
@@ -62,7 +78,7 @@ func TestIsOverlapping(t *testing.T) {
 }
 
 func TestSine(t *testing.T) {
-	wv, err := OpenWavFile("testdata/440sin.wav")
+	wv, err := wav.OpenWavFile("testdata/440sin.wav")
 	failIfErr(t, err)
 
 	defer wv.Close()
@@ -92,7 +108,7 @@ func TestSine(t *testing.T) {
 }
 
 func TestEnergyConservation(t *testing.T) {
-	wv, err := OpenWavFile("testdata/440sin.wav")
+	wv, err := wav.OpenWavFile("testdata/440sin.wav")
 	failIfErr(t, err)
 
 	defer wv.Close()

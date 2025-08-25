@@ -1,10 +1,14 @@
 package main
 
-import "github.com/faiface/beep"
+import (
+	"github.com/faiface/beep"
+	"github.com/rabidaudio/led-eq/eq"
+	"github.com/rabidaudio/led-eq/wav"
+)
 
 type EQStreamWrapper struct {
 	beep.Streamer
-	eq *EQ
+	eq *eq.EQ
 	d  Display
 
 	buf  []float64
@@ -32,17 +36,17 @@ func (sw *EQStreamWrapper) Stream(samples [][2]float64) (n int, ok bool) {
 		sw.buf = append(sw.buf, make([]float64, n-rem)...)
 	}
 	// mono data and copy into buffer
-	ToMono(samples[:n], sw.buf[sw.bufi:(sw.bufi+n)])
+	wav.ToMono(samples[:n], sw.buf[sw.bufi:(sw.bufi+n)])
 	sw.bufi += n
 
 	// if a full N is available
 	if sw.bufi >= sw.eq.N {
 		if sw.res == nil {
-			sw.res = make([]float64, sw.eq.NumBins)
+			sw.res = make([]float64, sw.eq.OutBins.Len())
 		}
 		// compute and render
+		sw.eq.Compute(sw.buf[:sw.eq.N], sw.res)
 		if sw.d != nil {
-			sw.eq.Compute(sw.buf[:sw.eq.N], sw.res)
 			err := sw.d.Render(sw.res)
 			if err != nil {
 				sw.err = err

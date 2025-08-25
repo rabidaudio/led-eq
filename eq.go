@@ -12,65 +12,89 @@ import (
 type EQ struct {
 	NumBins      int
 	SampleRate   int
-	Timestep     time.Duration
 	UpperBoundHz int
 	LowerBoundHz int
 
-	n               int
+	N               int
 	initialized     bool
 	linearBinSizeHz float64
 	exBinBounds     []float64
 	counts          []int
 }
 
-func (eq *EQ) initEQ() {
-	if eq.NumBins == 0 {
-		eq.NumBins = 16
-	}
-	if eq.LowerBoundHz == 0 {
-		eq.LowerBoundHz = 20
-	}
-	if eq.UpperBoundHz == 0 {
-		eq.UpperBoundHz = 20_000
-	}
-	if eq.SampleRate == 0 {
-		eq.SampleRate = 44100
-	}
-	if eq.Timestep == 0 {
-		eq.Timestep = 1 * time.Second / 60
-	}
-	if eq.n == 0 {
-		targetN := eq.Timestep.Seconds() * float64(eq.SampleRate)
-		eq.n = 1 // choose the largest power of 2 within the given timestep
+type StepMode int
+
+const (
+	AtLeast StepMode = iota
+	AtMost
+)
+
+// Compute the optimal FFT size N based on the desired
+// frequency at which you want measurements (e.g. 60Hz display).
+// If [StepMode] is [AtLeast], will return the next largest power of two
+// (meaning) time steps may be larger (and thus frequency may be slower).
+// If [AtMost], will return the largest power of two within timestep, meaning
+// steps may be smaller (and thus frequency may be faster).
+func NForTimeStep(sampleRate int, step time.Duration, mode StepMode) int {
+	targetN := int(step.Seconds() * float64(sampleRate))
+	n := 1
+
+	switch mode {
+	case AtLeast:
+		for n < targetN {
+			n *= 2
+		}
+	case AtMost:
+		fallthrough
+	default:
+		// choose the largest power of 2 within the given timestep
 		for {
-			if eq.n > int(targetN) {
-				eq.n /= 2 // went too far
+			if n > targetN {
+				n /= 2 // went too far
 				break
 			} else {
-				eq.n *= 2
+				n *= 2
 			}
 		}
-		eq.linearBinSizeHz = float64(eq.SampleRate) / float64(eq.n)
-
-		xstart := math.Log10(float64(eq.LowerBoundHz))
-		xend := math.Log10(float64(eq.UpperBoundHz))
-		xstep := (xend - xstart) / float64(eq.NumBins)
-		// lower frequency bounds (upper is x+1 or 20kHz)
-		eq.exBinBounds = make([]float64, eq.NumBins+1)
-		for i := range eq.NumBins {
-			eq.exBinBounds[i] = math.Pow(10, xstart+float64(i)*xstep)
-		}
-		eq.exBinBounds[eq.NumBins] = float64(eq.UpperBoundHz)
 	}
-	eq.counts = make([]int, eq.NumBins)
-	eq.initialized = true
+	return n
 }
 
-func (eq *EQ) N() int {
-	if !eq.initialized {
-		eq.initEQ()
+func DefaultEQ() EQ {
+	eq := EQ{
+		NumBins:      16,
+		LowerBoundHz: 20,
+		UpperBoundHz: 20_000,
+		SampleRate:   44100,
+		N:            2048,
 	}
-	return eq.n
+	eq.initEQ()
+	return eq
+}
+
+func NewEQ(sampleRate, bins, n int) EQ {
+	eq := DefaultEQ()
+	eq.SampleRate = sampleRate
+	eq.NumBins = bins
+	eq.N = n
+	eq.initEQ()
+	return eq
+}
+
+func (eq *EQ) initEQ() {
+	eq.linearBinSizeHz = float64(eq.SampleRate) / float64(eq.N)
+	xstart := math.Log10(float64(eq.LowerBoundHz))
+	xend := math.Log10(float64(eq.UpperBoundHz))
+	xstep := (xend - xstart) / float64(eq.NumBins)
+	// lower frequency bounds (upper is x+1 or 20kHz)
+	eq.exBinBounds = make([]float64, eq.NumBins+1)
+	for i := range eq.NumBins {
+		eq.exBinBounds[i] = math.Pow(10, xstart+float64(i)*xstep)
+	}
+	eq.exBinBounds[eq.NumBins] = float64(eq.UpperBoundHz)
+
+	eq.counts = make([]int, eq.NumBins)
+	eq.initialized = true
 }
 
 func realFFT(samples []float64, out []float64) {
@@ -87,8 +111,8 @@ func (eq *EQ) Compute(samples []float64, out []float64) {
 		eq.initEQ()
 	}
 
-	if len(samples) < eq.N() {
-		panic(fmt.Errorf("eq: expected N=%v samples but was %v", eq.N(), len(samples)))
+	if len(samples) < eq.N {
+		panic(fmt.Errorf("eq: expected N=%v samples but was %v", eq.N, len(samples)))
 	}
 	if len(out) < eq.NumBins {
 		panic(fmt.Errorf("eq: out must be at least len %v but was %v", eq.NumBins, len(out)))
@@ -99,7 +123,7 @@ func (eq *EQ) Compute(samples []float64, out []float64) {
 		eq.counts[i] = 0
 	}
 
-	transformed := make([]float64, eq.N())
+	transformed := make([]float64, eq.N)
 	realFFT(samples, transformed)
 
 	// var wtot float64

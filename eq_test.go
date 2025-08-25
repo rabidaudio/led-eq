@@ -14,14 +14,21 @@ func failIfErr(t *testing.T, err error) {
 	}
 }
 
+func TestNForTimeStep(t *testing.T) {
+	assert.Equal(t, 32, NForTimeStep(48_000, 1*time.Millisecond, AtMost) /* target 48*/)
+	assert.Equal(t, 64, NForTimeStep(48_000, 1*time.Millisecond, AtLeast) /* target 48*/)
+}
+
 func TestInit(t *testing.T) {
-	eq := EQ{SampleRate: 48_000, NumBins: 3, Timestep: 1 * time.Millisecond}
+	eq := DefaultEQ()
+	eq.SampleRate = 48_000
+	eq.NumBins = 3
+	eq.N = 32
 	eq.initEQ()
 
 	assert.True(t, eq.initialized)
 
-	// timstamp target = 48
-	assert.Equal(t, 32, eq.N())
+	assert.Equal(t, 32, eq.N)
 	assert.Equal(t, float64(1500), eq.linearBinSizeHz)
 
 	assert.InDeltaSlice(t, []float64{20, 200, 2000, 20_000}, eq.exBinBounds, 0.1)
@@ -32,7 +39,7 @@ func TestInit(t *testing.T) {
 }
 
 func TestDefaultInit(t *testing.T) {
-	eq := EQ{}
+	eq := DefaultEQ()
 	eq.initEQ()
 
 	assert.Equal(t, 44100, eq.SampleRate, "default")
@@ -40,9 +47,8 @@ func TestDefaultInit(t *testing.T) {
 	assert.Equal(t, 20_000, eq.UpperBoundHz, "default to audible range (20 KHz)")
 
 	assert.Equal(t, 16, eq.NumBins, "default to 16 EQ bars")
-	assert.Equal(t, 1*time.Second/60, eq.Timestep, "default 60Hz measurements (to match screen framerates)")
 
-	assert.Equal(t, 512, eq.N(), "the largest power of two that fits within Timestep")
+	assert.Equal(t, 2048, eq.N, "default")
 }
 
 func TestIsOverlapping(t *testing.T) {
@@ -61,9 +67,9 @@ func TestSine(t *testing.T) {
 
 	defer wv.Close()
 
-	eq := EQ{SampleRate: wv.SampleRate(), NumBins: 16, Timestep: 50 * time.Millisecond}
+	eq := NewEQ(wv.SampleRate(), 16, NForTimeStep(wv.SampleRate(), 50*time.Millisecond, AtMost))
 
-	p := make([]float64, eq.N())
+	p := make([]float64, eq.N)
 	n, err := wv.ReadMono(p)
 	failIfErr(t, err)
 	assert.Equal(t, n, len(p))
@@ -91,9 +97,9 @@ func TestEnergyConservation(t *testing.T) {
 
 	defer wv.Close()
 
-	eq := EQ{SampleRate: wv.SampleRate(), NumBins: 16, Timestep: 50 * time.Millisecond}
+	eq := NewEQ(wv.SampleRate(), 16, NForTimeStep(wv.SampleRate(), 50*time.Millisecond, AtMost))
 
-	p := make([]float64, eq.N())
+	p := make([]float64, eq.N)
 	n, err := wv.ReadMono(p)
 	failIfErr(t, err)
 	assert.Equal(t, n, len(p))
@@ -106,7 +112,7 @@ func TestEnergyConservation(t *testing.T) {
 	// RMS of a sin wave is srt(2)* peak value
 	assert.InDelta(t, rms(p), 0.707*0.4, 0.01)
 
-	out := make([]float64, eq.N())
+	out := make([]float64, eq.N)
 	realFFT(p, out)
 
 	assert.InDelta(t, 0.707*0.4, rms(out), 0.01)

@@ -18,7 +18,7 @@ var _ beep.Streamer = (*EQStreamWrapper)(nil)
 
 func (sw *EQStreamWrapper) Stream(samples [][2]float64) (n int, ok bool) {
 	if sw.buf == nil {
-		sw.buf = make([]float64, 0, sw.eq.N())
+		sw.buf = make([]float64, 0, sw.eq.N)
 		sw.bufi = 0
 	}
 
@@ -36,21 +36,21 @@ func (sw *EQStreamWrapper) Stream(samples [][2]float64) (n int, ok bool) {
 	sw.bufi += n
 
 	// if a full N is available
-	if sw.bufi >= sw.eq.N() {
+	if sw.bufi >= sw.eq.N {
 		if sw.res == nil {
 			sw.res = make([]float64, sw.eq.NumBins)
 		}
 		// compute and render
 		if sw.d != nil {
-			sw.eq.Compute(sw.buf[:sw.eq.N()], sw.res)
+			sw.eq.Compute(sw.buf[:sw.eq.N], sw.res)
 			err := sw.d.Render(sw.res)
 			if err != nil {
 				sw.err = err
 				return n, false
 			}
 		}
-		sw.buf = sw.buf[sw.eq.N():] // advance buffer
-		sw.bufi -= sw.eq.N()
+		sw.buf = sw.buf[sw.eq.N:] // advance buffer
+		sw.bufi -= sw.eq.N
 	}
 	return n, ok
 }

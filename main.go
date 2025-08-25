@@ -14,13 +14,13 @@ func main() {
 		panic(err)
 	}
 
-	// TODO: func N(timestep)
-	eq := EQ{SampleRate: wv.SampleRate(), NumBins: 16, Timestep: 50 * time.Millisecond}
+	N := NForTimeStep(wv.SampleRate(), 1*time.Second/60.0 /*60Hz*/, AtLeast)
+	eq := NewEQ(wv.SampleRate(), 32, N)
 
 	td := NewTerminalDisplay(&eq)
 	wrap := EQStreamWrapper{Streamer: wv, eq: &eq, d: td}
 
-	speaker.Init(wv.fmt.SampleRate, eq.N())
+	speaker.Init(wv.fmt.SampleRate, eq.N)
 
 	go func() {
 		speaker.Play(beep.Seq(&wrap, beep.Callback(func() {

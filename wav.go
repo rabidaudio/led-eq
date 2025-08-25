@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"io"
 	"os"
 
@@ -14,8 +13,6 @@ func ToMono(p [][2]float64, out []float64) {
 		out[i] = (p[i][0] + p[i][1]) / 2
 	}
 }
-
-type readCallback func(p [][2]float64)
 
 type WavReader struct {
 	beep.Streamer
@@ -40,7 +37,6 @@ func (wv *WavReader) NumChannels() int {
 }
 
 func (wv *WavReader) Read(p [][2]float64) (n int, err error) {
-	fmt.Printf("WavREader read\n")
 	n, ok := wv.Stream(p)
 	if !ok {
 		err = wv.Streamer.Err()

@@ -18,6 +18,9 @@ import (
 const FreqBins = 16
 const SampleRate = 44100
 
+const LowBoundHz = 20
+const HighBoundHz = 20_000
+
 var Timestep = time.Second / 60 // 60Hz
 var N int
 var binSizeHz float64
@@ -54,6 +57,68 @@ func main() {
 	go func(wg *sync.WaitGroup) {
 		defer wg.Done()
 
+		x := make([]float64, N)
+
+		xstart := math.Log10(LowBoundHz)
+		xend := math.Log10(HighBoundHz)
+		xstep := (xend - xstart) / FreqBins
+
+		// lower frequency bounds (upper is x+1 or 20kHz)
+		binBoundsHz := make([]float64, FreqBins+1)
+		for i := range FreqBins {
+			binBoundsHz[i] = math.Pow(10, xstart+float64(i)*xstep)
+		}
+		binBoundsHz[FreqBins] = HighBoundHz
+
+		for {
+			// load the next FreqBins samples
+			for i := range N {
+				sample, ok := <-samples
+				if !ok {
+					fmt.Printf("no more samples\n")
+					close(lines)
+					return // closed, finished
+				}
+				x[i] = sample
+			}
+			transformed := fft.FFTReal(x)
+
+			l := make([]float64, FreqBins)
+			counts := make([]int, FreqBins)
+
+			for i := range transformed {
+				v := cmplx.Abs(transformed[i]) / math.Sqrt(float64(N)) // normalized magnitude
+
+				lbinhz := binSizeHz * float64(i)
+
+				for j := range FreqBins {
+					// TODO: could weighted average bins that fall across bounds, but for now we're just going
+					// to assign completely to both
+					if (lbinhz >= binBoundsHz[j] && lbinhz < binBoundsHz[j+1]) || // lower is within bin
+						((lbinhz+binSizeHz) >= binBoundsHz[j] && (lbinhz+binSizeHz) < binBoundsHz[j+1]) || // upper is within
+						(lbinhz <= binBoundsHz[j] && (lbinhz+binSizeHz) >= binBoundsHz[j+1]) { // covers the whole
+
+						l[j] += v
+						counts[j] += 1
+					}
+				}
+			}
+
+			// convert sums to averages
+			for i := range FreqBins {
+				if counts[i] != 0 {
+					l[i] = l[i] / float64(counts[i])
+				}
+			}
+
+			lines <- l
+		}
+	}(&wg)
+
+	wg.Add(1)
+	go func(wg *sync.WaitGroup) {
+		defer wg.Done()
+
 		// draw(fileSizeSamples, lines)
 		f, err := os.Create("out.tsv")
 		if err != nil {
@@ -81,38 +146,6 @@ func main() {
 				panic(err)
 			}
 			i += 1
-		}
-	}(&wg)
-
-	wg.Add(1)
-	go func(wg *sync.WaitGroup) {
-		defer wg.Done()
-
-		x := make([]float64, N)
-		for {
-			// load the next FreqBins samples
-			for i := range N {
-				sample, ok := <-samples
-				if !ok {
-					fmt.Printf("no more samples\n")
-					close(lines)
-					return // closed, finished
-				}
-				x[i] = sample
-			}
-			transformed := fft.FFTReal(x)
-
-			l := make([]float64, FreqBins)
-			for i := range FreqBins { // 16
-				var sum float64
-				for j := range binSize { // 64
-					v := cmplx.Abs(transformed[i*binSize+j]) / math.Sqrt(float64(N)) // normalized magnitude
-					sum += v
-				}
-				l[i] = sum / float64(binSize) // avg over binSize
-			}
-
-			lines <- l
 		}
 	}(&wg)
 

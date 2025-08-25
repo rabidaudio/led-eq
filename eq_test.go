@@ -56,8 +56,7 @@ func TestIsOverlapping(t *testing.T) {
 }
 
 func TestSine(t *testing.T) {
-	wv := WavReader{Path: "testdata/440sin.wav"}
-	err := wv.Open()
+	wv, err := OpenWavFile("testdata/440sin.wav")
 	failIfErr(t, err)
 
 	defer wv.Close()
@@ -87,8 +86,7 @@ func TestSine(t *testing.T) {
 }
 
 func TestEnergyConservation(t *testing.T) {
-	wv := WavReader{Path: "testdata/440sin.wav"}
-	err := wv.Open()
+	wv, err := OpenWavFile("testdata/440sin.wav")
 	failIfErr(t, err)
 
 	defer wv.Close()

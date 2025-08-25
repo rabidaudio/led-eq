@@ -69,7 +69,7 @@ var _ tea.Model = (*TerminalDisplay)(nil)
 func NewTerminalDisplay(eq *EQ) *TerminalDisplay {
 	sl := sparkline.New(eq.NumBins, 10)
 	td := TerminalDisplay{eq: eq, sl: sl}
-	td.msg = make(chan tea.Msg, 60)
+	td.msg = make(chan tea.Msg)
 	return &td
 }
 

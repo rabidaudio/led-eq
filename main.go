@@ -1,9 +1,11 @@
 package main
 
 import (
-	"io"
 	"os"
 	"time"
+
+	"github.com/faiface/beep"
+	"github.com/faiface/beep/speaker"
 )
 
 func main() {
@@ -12,37 +14,19 @@ func main() {
 		panic(err)
 	}
 
+	// TODO: func N(timestep)
 	eq := EQ{SampleRate: wv.SampleRate(), NumBins: 16, Timestep: 50 * time.Millisecond}
 
-	// duplicate streamer so we can also play back
-	// a, b := beep.Dup(wv.s)
-	// wv.s = &a
-
-	// speaker.Init(wv.fmt.SampleRate, eq.N())
-
 	td := NewTerminalDisplay(&eq)
+	wrap := EQStreamWrapper{Streamer: wv, eq: &eq, d: td}
+
+	speaker.Init(wv.fmt.SampleRate, eq.N())
 
 	go func() {
-		p := make([]float64, eq.N())
-		res := make([]float64, eq.NumBins)
-		for {
-			_, err := wv.ReadMono(p)
-			if err == io.EOF {
-				td.Done()
-				return
-			}
-			if err != nil {
-				panic(err)
-			}
-			eq.Compute(p, res)
-			td.Render(res)
-		}
+		speaker.Play(beep.Seq(&wrap, beep.Callback(func() {
+			td.Done()
+		})))
 	}()
 
 	td.Run()
-
-	// done := make(chan bool)
-	// speaker.Play(beep.Seq(streamer, beep.Callback(func() {
-	// 	done <- true
-	// })))
 }

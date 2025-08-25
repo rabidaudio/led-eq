@@ -102,6 +102,7 @@ func (eq *EQ) Compute(samples []float64, out []float64) {
 	transformed := make([]float64, eq.N())
 	realFFT(samples, transformed)
 
+	// var wtot float64
 	for i, v := range transformed {
 		lbinhzlow := eq.linearBinSizeHz * float64(i)
 		lbinhzhigh := eq.linearBinSizeHz * float64(i+1)
@@ -109,19 +110,22 @@ func (eq *EQ) Compute(samples []float64, out []float64) {
 		for j := range eq.NumBins {
 			exbinhzlow, exbinhzhigh := eq.BinBounds(j)
 
-			// for any linear bin that overlaps with an exponential bin, include it's measurement
-			if isOverlapping(lbinhzlow, lbinhzhigh, exbinhzlow, exbinhzhigh) {
-				out[j] += v
-				eq.counts[j] += 1
-			}
+			w := getWeight(lbinhzlow, lbinhzhigh, exbinhzlow, exbinhzhigh)
+			// wtot += w
+			out[j] += w * v
 		}
+
+		// wl := getWeight(lbinhzlow, lbinhzhigh, 0, float64(eq.LowerBoundHz))
+		// wh := getWeight(lbinhzlow, lbinhzhigh, float64(eq.UpperBoundHz), float64(eq.SampleRate))
+		// fmt.Printf("unused bin weights for [%v %v]:\t %v\t%v\n", lbinhzlow, lbinhzhigh, wl, wh)
 	}
 
-	// convert sums to averages
+	// scale := wtot / float64(eq.N())
+	// fmt.Printf("used weights: %v of %v (%v)\n", wtot, eq.N(), scale)
+
 	for i := range eq.NumBins {
-		if eq.counts[i] != 0 { // avoid divide by zero
-			out[i] = out[i] / float64(eq.counts[i])
-		}
+		out[i] /= float64(eq.NumBins) // normalize energy
+		// out[i] /= (1 - scale)
 	}
 }
 
@@ -143,4 +147,44 @@ func isOverlapping(alo, ahi, blo, bhi float64) bool {
 		return true
 	}
 	return false
+}
+
+func getWeight(linstart, linend, exstart, exend float64) float64 {
+	if linstart >= exstart && linend <= exend {
+		// case 1: linear contained within exponential
+		return 1
+	}
+	// TODO: pre-compute during init
+	la := math.Log10(linstart)
+	if linstart == 0 {
+		la = 0
+	}
+	lb := math.Log10(linend)
+	ea := math.Log10(exstart)
+	if exstart == 0 {
+		ea = 0
+	}
+	eb := math.Log10(exend)
+	if exstart >= linstart && exend <= linend {
+		// case 2: exponential contained within linear
+		return (eb - ea) / (lb - la)
+	}
+	if exstart >= linstart && exstart < linend {
+		// case 3: exponential crosses end of linear
+		return (lb - ea) / (lb - la)
+	}
+	if linstart >= exstart && linstart < exend {
+		// case 4: exponential crosses start of linear
+		return (eb - la) / (lb - la)
+	}
+	return 0 // disjoint
+}
+
+func rms(data []float64) float64 {
+	var sum float64
+	for _, d := range data {
+		sum += d * d
+	}
+	avg := sum / float64(len(data))
+	return math.Sqrt(avg)
 }

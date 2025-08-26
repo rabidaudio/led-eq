@@ -42,7 +42,7 @@ func ExponentialBins(start, stop float64, len int) Bins {
 	b := make([]float64, len+1)
 	for i := range len + 1 {
 		x := xstart + float64(i)*xstep
-		b[i] = math.Pow(10, x)
+		b[i] = math.Exp(x)
 	}
 	return Bins{
 		len:           len,
@@ -59,35 +59,17 @@ func ArbitraryBins(bounds ...float64) Bins {
 	}
 }
 
-func (b Bins) toExponential() Bins {
-	bb := make([]float64, b.len+1)
-	for i := range b.len + 1 {
-		bb[i] = log(b.bounds[i])
-	}
-	return Bins{
-		len:    b.len,
-		bounds: bb,
-	}
-}
-
 func log(v float64) float64 {
 	if v == 0 {
 		return 0
 	}
-	return math.Log10(v) // TODO: log2? logE?
+	return math.Log(v)
 }
 
-func weightFn(src, dest Bins) func(i, j int) float64 {
-	if dest.isExponential {
-		// operate in exponential mode
-		src = src.toExponential()
-		dest = dest.toExponential()
-	}
-	return func(i, j int) float64 {
-		slo, shi := src.Bounds(i)
-		dlo, dhi := dest.Bounds(j)
-		return overlapRatio(slo, shi, dlo, dhi)
-	}
+func weights(i, j int, src, dest Bins) float64 {
+	slo, shi := src.Bounds(i)
+	dlo, dhi := dest.Bounds(j)
+	return overlapRatio(slo, shi, dlo, dhi)
 }
 
 func overlapRatio(srclo, srchi, destlo, desthi float64) float64 {

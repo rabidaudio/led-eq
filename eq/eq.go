@@ -13,8 +13,6 @@ type EQ struct {
 	SampleRate int
 	N          int
 	OutBins    Bins
-
-	weightFn func(i, j int) float64
 }
 
 type StepMode int
@@ -80,18 +78,14 @@ func (eq *EQ) Compute(samples []float64, out []float64) {
 	fft := make([]float64, eq.N)
 	realFFT(samples, fft)
 
-	// re-bin, using cached function for performance
-	if eq.weightFn == nil {
-		// TODO: if EQ parameters are changed at runtime, this method becomes invalid
-		src := LinearBins(0, float64(eq.SampleRate), eq.N)
-		dest := eq.OutBins
-		eq.weightFn = weightFn(src, dest)
-	}
+	// re-bin
+	src := LinearBins(0, float64(eq.SampleRate), eq.N)
+	dest := eq.OutBins
 
 	// TODO: matrix multiplication
 	for i, v := range fft {
 		for j := range out {
-			w := eq.weightFn(i, j)
+			w := weights(i, j, src, dest)
 			out[j] += w * v
 		}
 	}

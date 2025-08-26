@@ -95,8 +95,6 @@ func TestLinearConversion(t *testing.T) {
 	a := LinearBins(0, 24, 3)  // 0 8 16 24
 	b := LinearBins(12, 24, 4) // 12 15 18 21 24
 
-	wfn := weightFn(a, b)
-
 	//        00  01  02  03  04  05  06  07  08  09  10  11  12  13  14  15  16  17  18  19  20  21  22  23  24
 	//src:   [a                             ][b                             ][c                                 ]
 	//dest:                                                  [d         ][e         ][f         ][g             ]
@@ -108,7 +106,7 @@ func TestLinearConversion(t *testing.T) {
 	results := make([]float64, 0)
 	for i := range a.Len() {
 		for j := range b.Len() {
-			w := wfn(i, j)
+			w := weights(i, j, a, b)
 			results = append(results, w)
 		}
 	}
@@ -124,12 +122,10 @@ func TestExponentialConversion(t *testing.T) {
 	lbins := LinearBins(0, 48_000, 16)
 	ebins := ExponentialBins(20, 20_000, 3)
 
-	wfn := weightFn(lbins, ebins)
-
 	results := make([]float64, 0)
 	for l := range lbins.Len() {
 		for e := range ebins.Len() {
-			w := wfn(l, e)
+			w := weights(l, e, lbins, ebins)
 			results = append(results, w)
 		}
 	}
@@ -159,8 +155,6 @@ func TestUpscaleConversion(t *testing.T) {
 	a := LinearBins(12, 24, 4) // 12 15 18 21 24
 	b := LinearBins(0, 24, 3)  // 0 8 16 24
 
-	wfn := weightFn(a, b)
-
 	//        00  01  02  03  04  05  06  07  08  09  10  11  12  13  14  15  16  17  18  19  20  21  22  23  24
 	//src:                                                   [d         ][e         ][f         ][g             ]
 	//dest:  [a                             ][b                             ][c                                 ]
@@ -173,7 +167,7 @@ func TestUpscaleConversion(t *testing.T) {
 	results := make([]float64, 0)
 	for i := range a.Len() {
 		for j := range b.Len() {
-			w := wfn(i, j)
+			w := weights(i, j, a, b)
 			results = append(results, w)
 		}
 	}
@@ -190,12 +184,10 @@ func TestArbitraryConversion(t *testing.T) {
 	a := LinearBins(0, 1000, 10)
 	b := ArbitraryBins(0, 100, 250, 500, 2500)
 
-	wfn := weightFn(a, b)
-
 	results := make([]float64, 0)
 	for i := range a.Len() {
 		for j := range b.Len() {
-			w := wfn(i, j)
+			w := weights(i, j, a, b)
 			results = append(results, w)
 		}
 	}

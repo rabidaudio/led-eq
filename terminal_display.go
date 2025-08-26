@@ -11,13 +11,12 @@ import (
 )
 
 // arbitrary, just make the scale bigger cheaply
-const scaleFactor = 8
+const scaleFactor = 10
 
 type TerminalDisplay struct {
 	eq  *eq.EQ
 	msg chan tea.Msg
 	sl  sparkline.Model
-	avg float64
 }
 
 type render struct{ data []float64 }
@@ -57,11 +56,6 @@ func (td *TerminalDisplay) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case done:
 		return done{}, tea.Quit
 	case render:
-		td.avg = 0
-		for _, v := range msg.data {
-			td.avg += v
-		}
-		td.avg /= float64(len(msg.data))
 		td.sl.PushAll(msg.data)
 		td.sl.Draw()
 		return td, td.awaitNext()
@@ -70,7 +64,7 @@ func (td *TerminalDisplay) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (td *TerminalDisplay) View() string {
-	return fmt.Sprintf("avg: %f\n", td.avg) + td.sl.View()
+	return td.sl.View()
 }
 
 var _ Display = (*TerminalDisplay)(nil)

@@ -3,6 +3,7 @@ package eq
 import (
 	"fmt"
 	"os"
+	"slices"
 	"testing"
 	"time"
 
@@ -120,3 +121,75 @@ func TestEnergyConservationSine(t *testing.T) {
 		// assert.InDelta(t, 0.707*0.4, r, 0.1)
 	}
 }
+
+func TestNormalizedSinValue(t *testing.T) {
+	wv, err := wav.OpenWavFile("testdata/440sin_1.wav")
+	failIfErr(t, err)
+
+	defer wv.Close()
+
+	// f, err := os.Create("out.txt")
+	// failIfErr(t, err)
+	// defer f.Close()
+
+	wavdata := make([]float64, 0, 4*wv.SampleRate())
+	chunk := make([][2]float64, 512)
+	chunkMono := make([]float64, 512)
+	for {
+		n, ok := wv.Stream(chunk)
+		wav.ToMono(chunk[:n], chunkMono[:n])
+		wavdata = append(wavdata, chunkMono[:n]...)
+		if !ok {
+			break
+		}
+	}
+
+	// t.Log("read file\n")
+
+	// for n := 0; n < 11; n += 1 {
+	// N := (1 << n)
+	avg := 0.0
+	navg := 0.0
+	for N := 1; N < 2048; N += 1 {
+
+		// for b := 0; b < 6; b += 1 {
+		for b := 5; b < 6; b += 1 {
+			B := (1 << b)
+			eq := EQ{SampleRate: wv.SampleRate(), N: N, OutBins: ExponentialBins(20, 20_000, B)}
+
+			t.Log(N, B)
+
+			max := 0.0
+			c := 0
+			n := 0
+			out := make([]float64, B)
+			for n < len(wavdata) {
+				end := n + N
+				if end > len(wavdata) {
+					break
+				}
+				eq.Compute(wavdata[n:end], out)
+				max = slices.Max(out)
+				n += N
+				c += 1
+			}
+			// a /= float64(c)
+			// fmt.Fprintf(f, "%d\t%d\t%f\n", N, B, max)
+			avg += max
+			navg += 1
+		}
+	}
+	avg /= navg
+	t.Log(avg)
+	assert.InEpsilon(t, Normalization440HzSin, 1/avg, 0.01)
+}
+
+func avg(p []float64) float64 {
+	a := 0.0
+	for i := range p {
+		a += p[i]
+	}
+	return a / float64(len(p))
+}
+
+// TODO: sweep frequency range and see how RMS changes

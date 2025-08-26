@@ -53,7 +53,7 @@ func log(v float64) float64 {
 func weights(i, j int, src, dest Bins) float64 {
 	slo, shi := src.Bounds(i)
 	dlo, dhi := dest.Bounds(j)
-	return overlapRatio(slo, shi, dlo, dhi) // TODO: normalize transfer?  / (dhi - dlo)
+	return overlapRatio(slo, shi, dlo, dhi)
 }
 
 func overlapRatio(srclo, srchi, destlo, desthi float64) float64 {

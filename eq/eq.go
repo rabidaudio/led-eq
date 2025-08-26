@@ -15,9 +15,15 @@ type EQ struct {
 	SampleRate int
 	N          int
 	OutBins    Bins
+	Normalize  float64
+	OutputDB   bool
 
 	counts []float64
 }
+
+// This number was determined empirically by looking at the peak value
+// of a 0db 440Hz sine wave over a number of FFT window sizes
+const Normalization440HzSin = 1 / 3.78
 
 type StepMode int
 
@@ -106,11 +112,15 @@ func (eq *EQ) Compute(samples []float64, out []float64) {
 	}
 
 	// normalize energy
+	if eq.Normalize == 0 {
+		eq.Normalize = 1
+	}
 	for i := range out {
-		// I don't have a mathematical justification for this, but it does
-		// seem to keep the RMS consistent
-		out[i] *= float64(eq.OutBins.Len()) / eq.counts[i]
-		// (float64(eq.OutBins.Len()) / float64(eq.N))
+		out[i] /= eq.counts[i]
+		out[i] = out[i] * eq.Normalize
+	}
+	if eq.OutputDB {
+		ToDB(out)
 	}
 }
 
@@ -121,4 +131,14 @@ func RMS(data []float64) float64 {
 	}
 	avg := sum / float64(len(data))
 	return math.Sqrt(avg)
+}
+
+func db(v float64) float64 {
+	return 20 * math.Log10(v)
+}
+
+func ToDB(samples []float64) {
+	for i := range samples {
+		samples[i] = db(samples[i])
+	}
 }

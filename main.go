@@ -25,6 +25,8 @@ func must[T any](obj T, err error) T {
 	return obj
 }
 
+// TODO: normalize: y axis log, clip above 0db
+
 func main() {
 	var wv *wav.WavReader
 	if debug {
@@ -34,16 +36,24 @@ func main() {
 	}
 
 	N := eq.NForTimeStep(wv.SampleRate(), 1*time.Second/60.0 /*60Hz*/, eq.AtLeast)
-	eq := eq.New(wv.SampleRate(), N, 32)
+	e := eq.EQ{
+		SampleRate: wv.SampleRate(),
+		N:          N,
+		// OutBins:    eq.ExponentialBins(20, 20_000, 32),
+		// OutBins:    eq.LinearBins(0, float64(wv.SampleRate()), N),
+		OutBins: eq.ArbitraryBins(
+			50, 100, 200, 400, 800, 1600, 3200, 6400, 20_000,
+		),
+	}
 
-	speaker.Init(beep.SampleRate(wv.SampleRate()), eq.N)
+	speaker.Init(beep.SampleRate(wv.SampleRate()), e.N)
 
 	var td *TerminalDisplay
 	if !debug {
-		td = NewTerminalDisplay(&eq)
+		td = NewTerminalDisplay(&e)
 	}
 
-	wrap := EQStreamWrapper{Streamer: wv, eq: &eq, d: td}
+	wrap := EQStreamWrapper{Streamer: wv, eq: &e, d: td}
 
 	done := make(chan struct{})
 	go func() {

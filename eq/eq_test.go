@@ -1,7 +1,8 @@
 package eq
 
 import (
-	"math"
+	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -14,15 +15,6 @@ func failIfErr(t *testing.T, err error) {
 	if err != nil {
 		t.Fail()
 	}
-}
-
-func rms(data []float64) float64 {
-	var sum float64
-	for _, d := range data {
-		sum += d * d
-	}
-	avg := sum / float64(len(data))
-	return math.Sqrt(avg)
 }
 
 func TestNForTimeStep(t *testing.T) {
@@ -85,15 +77,16 @@ func TestSine(t *testing.T) {
 	}
 }
 
-func TestEnergyConservation(t *testing.T) {
+func TestEnergyConservationSine(t *testing.T) {
 	wv, err := wav.OpenWavFile("testdata/440sin.wav")
 	failIfErr(t, err)
 
 	defer wv.Close()
 
-	eq := New(wv.SampleRate(), NForTimeStep(wv.SampleRate(), 50*time.Millisecond, AtMost), 16)
+	N := NForTimeStep(wv.SampleRate(), 50*time.Millisecond, AtMost)
+	eq := New(wv.SampleRate(), N, 16)
 
-	p := make([]float64, eq.N)
+	p := make([]float64, N)
 	n, err := wv.ReadMono(p)
 	failIfErr(t, err)
 	assert.Equal(t, n, len(p))
@@ -104,10 +97,26 @@ func TestEnergyConservation(t *testing.T) {
 	}
 
 	// RMS of a sin wave is srt(2)* peak value
-	assert.InDelta(t, rms(p), 0.707*0.4, 0.01)
+	assert.InDelta(t, RMS(p), 0.707*0.4, 0.01)
 
-	out := make([]float64, eq.N)
+	out := make([]float64, N)
 	realFFT(p, out)
 
-	assert.InDelta(t, 0.707*0.4, rms(out), 0.01)
+	assert.InDelta(t, 0.707*0.4, RMS(out), 0.01)
+
+	f, err := os.Create("out.txt")
+	failIfErr(t, err)
+	defer f.Close()
+
+	// rms should be approximately for binning conversions regardless of bin size
+	for i := 1; i < N; i += 1 {
+		eq.OutBins = LinearBins(0, float64(wv.SampleRate()), i)
+		out = make([]float64, i)
+		eq.Compute(p, out)
+		r := RMS(out)
+
+		fmt.Fprintf(f, "%v\t%v\n", i, r)
+		// t.Log(i, r)
+		// assert.InDelta(t, 0.707*0.4, r, 0.1)
+	}
 }

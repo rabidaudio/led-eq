@@ -4,21 +4,17 @@ import (
 	"math"
 )
 
-type Bins struct {
-	len           int
-	bounds        []float64
-	isExponential bool
+type Bins []float64
+
+func (b Bins) Len() int {
+	return len(b) - 1
 }
 
-func (b *Bins) Len() int {
-	return b.len
-}
-
-func (b *Bins) Bounds(i int) (float64, float64) {
-	if i < 0 || i >= b.len {
+func (b Bins) Bounds(i int) (float64, float64) {
+	if i < 0 || i >= b.Len() {
 		return -1, -1
 	}
-	return b.bounds[i], b.bounds[i+1]
+	return b[i], b[i+1]
 }
 
 func LinearBins(start, stop float64, len int) Bins {
@@ -27,11 +23,7 @@ func LinearBins(start, stop float64, len int) Bins {
 	for i := range len + 1 {
 		b[i] = start + float64(i)*step
 	}
-	return Bins{
-		len:           len,
-		bounds:        b,
-		isExponential: false,
-	}
+	return b
 }
 
 func ExponentialBins(start, stop float64, len int) Bins {
@@ -44,19 +36,11 @@ func ExponentialBins(start, stop float64, len int) Bins {
 		x := xstart + float64(i)*xstep
 		b[i] = math.Exp(x)
 	}
-	return Bins{
-		len:           len,
-		bounds:        b,
-		isExponential: true,
-	}
+	return b
 }
 
 func ArbitraryBins(bounds ...float64) Bins {
-	return Bins{
-		len:           len(bounds) - 1,
-		bounds:        bounds,
-		isExponential: false,
-	}
+	return bounds
 }
 
 func log(v float64) float64 {
@@ -69,7 +53,7 @@ func log(v float64) float64 {
 func weights(i, j int, src, dest Bins) float64 {
 	slo, shi := src.Bounds(i)
 	dlo, dhi := dest.Bounds(j)
-	return overlapRatio(slo, shi, dlo, dhi)
+	return overlapRatio(slo, shi, dlo, dhi) // TODO: normalize transfer?  / (dhi - dlo)
 }
 
 func overlapRatio(srclo, srchi, destlo, desthi float64) float64 {

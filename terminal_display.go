@@ -10,10 +10,14 @@ import (
 	"github.com/rabidaudio/led-eq/eq"
 )
 
+// arbitrary, just make the scale bigger cheaply
+const scaleFactor = 8
+
 type TerminalDisplay struct {
 	eq  *eq.EQ
 	msg chan tea.Msg
 	sl  sparkline.Model
+	avg float64
 }
 
 type render struct{ data []float64 }
@@ -53,6 +57,11 @@ func (td *TerminalDisplay) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case done:
 		return done{}, tea.Quit
 	case render:
+		td.avg = 0
+		for _, v := range msg.data {
+			td.avg += v
+		}
+		td.avg /= float64(len(msg.data))
 		td.sl.PushAll(msg.data)
 		td.sl.Draw()
 		return td, td.awaitNext()
@@ -61,14 +70,14 @@ func (td *TerminalDisplay) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (td *TerminalDisplay) View() string {
-	return td.sl.View()
+	return fmt.Sprintf("avg: %f\n", td.avg) + td.sl.View()
 }
 
 var _ Display = (*TerminalDisplay)(nil)
 var _ tea.Model = (*TerminalDisplay)(nil)
 
 func NewTerminalDisplay(eq *eq.EQ) *TerminalDisplay {
-	sl := sparkline.New(eq.OutBins.Len(), 10)
+	sl := sparkline.New(eq.OutBins.Len(), scaleFactor)
 	td := TerminalDisplay{eq: eq, sl: sl}
 	td.msg = make(chan tea.Msg)
 	return &td
@@ -77,7 +86,7 @@ func NewTerminalDisplay(eq *eq.EQ) *TerminalDisplay {
 func (td *TerminalDisplay) Render(values []float64) error {
 	v := make([]float64, len(values))
 	for i := range values {
-		v[i] = values[i] * 8
+		v[i] = values[i] * scaleFactor
 	}
 	td.msg <- render{data: v}
 	return nil

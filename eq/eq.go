@@ -9,10 +9,14 @@ import (
 	"github.com/mjibson/go-dsp/fft"
 )
 
+// TODO: window
+
 type EQ struct {
 	SampleRate int
 	N          int
 	OutBins    Bins
+
+	counts []float64
 }
 
 type StepMode int
@@ -78,6 +82,16 @@ func (eq *EQ) Compute(samples []float64, out []float64) {
 	fft := make([]float64, eq.N)
 	realFFT(samples, fft)
 
+	if len(eq.counts) != eq.OutBins.Len() {
+		eq.counts = make([]float64, eq.OutBins.Len())
+	}
+
+	// zero output buf
+	for i := range out {
+		out[i] = 0
+		eq.counts[i] = 0
+	}
+
 	// re-bin
 	src := LinearBins(0, float64(eq.SampleRate), eq.N)
 	dest := eq.OutBins
@@ -86,11 +100,25 @@ func (eq *EQ) Compute(samples []float64, out []float64) {
 	for i, v := range fft {
 		for j := range out {
 			w := weights(i, j, src, dest)
+			eq.counts[j] += w
 			out[j] += w * v
 		}
 	}
 
-	for i := range eq.OutBins.Len() {
-		out[i] /= float64(eq.OutBins.Len()) // normalize energy
+	// normalize energy
+	for i := range out {
+		// I don't have a mathematical justification for this, but it does
+		// seem to keep the RMS consistent
+		out[i] *= float64(eq.OutBins.Len()) / eq.counts[i]
+		// (float64(eq.OutBins.Len()) / float64(eq.N))
 	}
+}
+
+func RMS(data []float64) float64 {
+	var sum float64
+	for _, d := range data {
+		sum += d * d
+	}
+	avg := sum / float64(len(data))
+	return math.Sqrt(avg)
 }

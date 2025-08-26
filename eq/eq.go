@@ -13,6 +13,8 @@ type EQ struct {
 	SampleRate int
 	N          int
 	OutBins    Bins
+
+	weightFn func(i, j int) float64
 }
 
 type StepMode int
@@ -35,7 +37,7 @@ func NForTimeStep(sampleRate int, step time.Duration, mode StepMode) int {
 		n *= 2
 	}
 	if mode == AtMost {
-		n /= 2 // went too far
+		n /= 2 // went 1 step too far
 	}
 	return n
 }
@@ -56,6 +58,8 @@ func New(sampleRate, n, numbins int) EQ {
 	return eq
 }
 
+// realFFT runs the fast fourier transform on real values samples, takes the
+// magnitude of the results, and scales such that energy is conserved.
 func realFFT(samples []float64, out []float64) {
 	transformed := fft.FFTReal(samples)
 	for i, v := range transformed {
@@ -64,7 +68,7 @@ func realFFT(samples []float64, out []float64) {
 }
 
 // Compute takes in a slice of N mono samples, computes the FFT, determines the magnitude
-// of each band, and averages into NumBins exponential buckets (out)
+// of each band, and averages into the format specified by [EQ.OutBins]
 func (eq *EQ) Compute(samples []float64, out []float64) {
 	if len(samples) < eq.N {
 		panic(fmt.Errorf("eq: expected N=%v samples but was %v", eq.N, len(samples)))
@@ -73,12 +77,24 @@ func (eq *EQ) Compute(samples []float64, out []float64) {
 		panic(fmt.Errorf("eq: out must be at least len %v but was %v", eq.OutBins.Len(), len(out)))
 	}
 
-	transformed := make([]float64, eq.N)
-	realFFT(samples, transformed)
+	fft := make([]float64, eq.N)
+	realFFT(samples, fft)
 
-	// re-bin
-	srcBins := LinearBins(0, float64(eq.SampleRate), eq.N)
-	resample(transformed, srcBins, out, eq.OutBins)
+	// re-bin, using cached function for performance
+	if eq.weightFn == nil {
+		// TODO: if EQ parameters are changed at runtime, this method becomes invalid
+		src := LinearBins(0, float64(eq.SampleRate), eq.N)
+		dest := eq.OutBins
+		eq.weightFn = weightFn(src, dest)
+	}
+
+	// TODO: matrix multiplication
+	for i, v := range fft {
+		for j := range out {
+			w := eq.weightFn(i, j)
+			out[j] += w * v
+		}
+	}
 
 	for i := range eq.OutBins.Len() {
 		out[i] /= float64(eq.OutBins.Len()) // normalize energy

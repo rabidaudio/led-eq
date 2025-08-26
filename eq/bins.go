@@ -77,24 +77,16 @@ func log(v float64) float64 {
 	return math.Log10(v) // TODO: log2? logE?
 }
 
-func weight(i, j int, src, dest Bins) float64 {
+func weightFn(src, dest Bins) func(i, j int) float64 {
 	if dest.isExponential {
 		// operate in exponential mode
 		src = src.toExponential()
 		dest = dest.toExponential()
 	}
-	slo, shi := src.Bounds(i)
-	dlo, dhi := dest.Bounds(j)
-	return overlapRatio(slo, shi, dlo, dhi)
-}
-
-func resample(fft []float64, src Bins, out []float64, dest Bins) {
-	// TODO: matrix multiplication
-	for i, v := range fft {
-		for j := range out {
-			w := weight(i, j, src, dest)
-			out[j] += w * v
-		}
+	return func(i, j int) float64 {
+		slo, shi := src.Bounds(i)
+		dlo, dhi := dest.Bounds(j)
+		return overlapRatio(slo, shi, dlo, dhi)
 	}
 }
 

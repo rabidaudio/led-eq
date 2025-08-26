@@ -77,7 +77,7 @@ func NewTerminalDisplay(eq *eq.EQ) *TerminalDisplay {
 func (td *TerminalDisplay) Render(values []float64) error {
 	v := make([]float64, len(values))
 	for i := range values {
-		v[i] = values[i] * 10
+		v[i] = values[i] * 8
 	}
 	td.msg <- render{data: v}
 	return nil

@@ -10,39 +10,54 @@ import (
 	"github.com/rabidaudio/led-eq/wav"
 )
 
-func main() {
-	wv, err := wav.OpenWav(os.Stdin)
-	// wv, err := wav.OpenWavFile("eq/testdata/440sin.wav")
+var debug = false
+
+func init() {
+	if v, ok := os.LookupEnv("DEBUG"); ok && v != "0" {
+		debug = true
+	}
+}
+
+func must[T any](obj T, err error) T {
 	if err != nil {
 		panic(err)
 	}
+	return obj
+}
+
+func main() {
+	var wv *wav.WavReader
+	if debug {
+		wv = must(wav.OpenWavFile("eq/testdata/440sin.wav")).WavReader
+	} else {
+		wv = must(wav.OpenWav(os.Stdin))
+	}
 
 	N := eq.NForTimeStep(wv.SampleRate(), 1*time.Second/60.0 /*60Hz*/, eq.AtLeast)
-	// eq := eq.NewEQ(wv.SampleRate(), N, 20)
-	eq := eq.EQ{
-		SampleRate: wv.SampleRate(),
-		N:          N,
-		// OutBins:    eq.LinearBins(0, 1000, 100)
-		OutBins: eq.ExponentialBins(20, 20_000, 10),
-	}
+	eq := eq.New(wv.SampleRate(), N, 32)
 
 	speaker.Init(beep.SampleRate(wv.SampleRate()), eq.N)
 
-	// wrap := EQStreamWrapper{Streamer: wv, eq: &eq}
-	// done := make(chan struct{})
-	// speaker.Play(beep.Seq(&wrap, beep.Callback(func() {
-	// 	done <- struct{}{}
-	// })))
-	// <-done
+	var td *TerminalDisplay
+	if !debug {
+		td = NewTerminalDisplay(&eq)
+	}
 
-	td := NewTerminalDisplay(&eq)
 	wrap := EQStreamWrapper{Streamer: wv, eq: &eq, d: td}
 
+	done := make(chan struct{})
 	go func() {
 		speaker.Play(beep.Seq(&wrap, beep.Callback(func() {
-			td.Done()
+			if td != nil {
+				td.Done()
+			}
+			done <- struct{}{}
 		})))
 	}()
 
-	td.Run()
+	if td != nil {
+		td.Run()
+	} else {
+		<-done
+	}
 }

@@ -1,6 +1,8 @@
 package main
 
 import (
+	"reflect"
+
 	"github.com/faiface/beep"
 	"github.com/rabidaudio/led-eq/eq"
 	"github.com/rabidaudio/led-eq/wav"
@@ -46,7 +48,7 @@ func (sw *EQStreamWrapper) Stream(samples [][2]float64) (n int, ok bool) {
 		}
 		// compute and render
 		sw.eq.Compute(sw.buf[:sw.eq.N], sw.res)
-		if sw.d != nil {
+		if sw.d != nil && !reflect.ValueOf(sw.d).IsNil() {
 			err := sw.d.Render(sw.res)
 			if err != nil {
 				sw.err = err

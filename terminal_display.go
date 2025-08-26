@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"slices"
 	"time"
 
 	"github.com/NimbleMarkets/ntcharts/sparkline"
@@ -17,6 +18,7 @@ type TerminalDisplay struct {
 	eq  *eq.EQ
 	msg chan tea.Msg
 	sl  sparkline.Model
+	max float64
 }
 
 type render struct{ data []float64 }
@@ -56,6 +58,7 @@ func (td *TerminalDisplay) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case done:
 		return done{}, tea.Quit
 	case render:
+		td.max = slices.Max(msg.data)
 		td.sl.PushAll(msg.data)
 		td.sl.Draw()
 		return td, td.awaitNext()
@@ -64,7 +67,7 @@ func (td *TerminalDisplay) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (td *TerminalDisplay) View() string {
-	return td.sl.View()
+	return fmt.Sprintf("max: %f\n", td.max) + td.sl.View()
 }
 
 var _ Display = (*TerminalDisplay)(nil)

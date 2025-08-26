@@ -10,6 +10,7 @@ import (
 )
 
 // TODO: window
+// https://www.modalshop.com/rental/learn/basics/how-to-choose-fft-window
 
 type EQ struct {
 	SampleRate int
@@ -17,13 +18,7 @@ type EQ struct {
 	OutBins    Bins
 	Normalize  float64
 	OutputDB   bool
-
-	counts []float64
 }
-
-// This number was determined empirically by looking at the peak value
-// of a 0db 440Hz sine wave over a number of FFT window sizes
-const Normalization440HzSin = 1 / 3.78
 
 type StepMode int
 
@@ -71,7 +66,8 @@ func New(sampleRate, n, numbins int) EQ {
 func realFFT(samples []float64, out []float64) {
 	transformed := fft.FFTReal(samples)
 	for i, v := range transformed {
-		out[i] = cmplx.Abs(v) / math.Sqrt(float64(len(samples))) // normalized magnitude
+		// https://dsp.stackexchange.com/questions/90327/how-to-normalize-the-fft
+		out[i] = cmplx.Abs(v) / float64(len(samples)) // normalized magnitude
 	}
 }
 
@@ -88,39 +84,32 @@ func (eq *EQ) Compute(samples []float64, out []float64) {
 	fft := make([]float64, eq.N)
 	realFFT(samples, fft)
 
-	if len(eq.counts) != eq.OutBins.Len() {
-		eq.counts = make([]float64, eq.OutBins.Len())
-	}
-
-	// zero output buf
-	for i := range out {
-		out[i] = 0
-		eq.counts[i] = 0
-	}
-
 	// re-bin
 	src := LinearBins(0, float64(eq.SampleRate), eq.N)
-	dest := eq.OutBins
-
-	// TODO: matrix multiplication
-	for i, v := range fft {
-		for j := range out {
-			w := weights(i, j, src, dest)
-			eq.counts[j] += w
-			out[j] += w * v
-		}
-	}
-
-	// normalize energy
+	resample(src, eq.OutBins, fft, out)
 	if eq.Normalize == 0 {
 		eq.Normalize = 1
 	}
 	for i := range out {
-		out[i] /= eq.counts[i]
-		out[i] = out[i] * eq.Normalize
+		out[i] *= eq.Normalize
 	}
 	if eq.OutputDB {
 		ToDB(out)
+	}
+}
+
+func resample(src, dest Bins, in, out []float64) {
+	counts := make([]float64, len(out))
+	// TODO: matrix multiplication
+	for i, v := range in {
+		for j := range out {
+			w := weights(i, j, src, dest)
+			counts[j] += w
+			out[j] += w * v
+		}
+	}
+	for i := range out {
+		out[i] /= counts[i]
 	}
 }
 

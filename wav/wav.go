@@ -43,7 +43,8 @@ func (wv *WavReader) Read(p [][2]float64) (n int, err error) {
 		if err != nil {
 			return n, err
 		}
-		return n, io.EOF
+		// return n, io.EOF
+		return 0, nil
 	}
 	return n, nil
 }

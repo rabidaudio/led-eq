@@ -98,7 +98,7 @@ func (eq *EQ) Compute(samples []float64, out []float64) {
 	}
 }
 
-func resample(src, dest Bins, in, out []float64) {
+func Resample(src, dest Bins, in, out []float64) {
 	counts := make([]float64, len(out))
 	// TODO: matrix multiplication
 	for i, v := range in {

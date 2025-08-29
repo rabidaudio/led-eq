@@ -32,14 +32,7 @@ func DeInterleaveToMono(in []int16, out []float64) {
 func main() {
 	// wv := must(wav.OpenWav(os.Stdin))
 
-	dev, err := alsa.NewCaptureDevice("loopin", 2, alsa.Format(alsa.FormatS16LE), 44100, alsa.BufferParams{
-		// BufferFrames: 65536,
-		// PeriodFrames: 2048,
-		// Periods:      128,
-	})
-	if err != nil {
-		panic(err)
-	}
+	dev := must(alsa.NewCaptureDevice("hw:1,1,0", 2, alsa.Format(alsa.FormatS16LE), 44100, alsa.BufferParams{}))
 
 	N := eq.NForTimeStep(dev.Rate, 1*time.Second/60.0 /*60Hz*/, eq.AtLeast)
 	e := eq.EQ{
@@ -49,7 +42,6 @@ func main() {
 		// OutBins: eq.LinearBins(0, float64(wv.SampleRate()), N),
 		OutBins: eq.ArbitraryBins(
 			50, 100, 200, 400, 800, 1600, 3200, 6400, 20_000,
-			// 25, 50, 75, 100, 150, 200, 300, 400, 600, 800, 1200, 1600, 2400, 3200, 4800, 6400, 9600, 20_000,
 		),
 		Normalize: 2,
 		OutputDB:  false,
@@ -65,10 +57,7 @@ func main() {
 			// _, err := wv.ReadMono(buf)
 			nn := 0
 			for nn < 2*N {
-				n, err := dev.Read(read[nn:])
-				if err != nil {
-					panic(err)
-				}
+				n := must(dev.Read(read[nn:]))
 				nn += n
 			}
 			DeInterleaveToMono(read, buf)
@@ -77,7 +66,7 @@ func main() {
 				out[i] = 0
 			}
 			e.Compute(buf, out)
-			err = td.Render(out)
+			err := td.Render(out)
 			if err != nil {
 				panic(err)
 			}

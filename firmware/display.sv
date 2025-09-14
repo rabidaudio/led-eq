@@ -93,7 +93,7 @@ module Test_SpiSlaveSimplex;
                 for (int k = 8; k-- > 0;) begin // each bit
                     @(posedge test_spi_clk);
                     test_cs <= 0;
-                    test_data_in <= (i < 3) + j;
+                    test_data_in <= (i << 3) + j;
                     test_mosi <= test_data_in[k];
                 end
             end

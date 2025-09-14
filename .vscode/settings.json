@@ -1,3 +1,13 @@
 {
-    "go.testTimeout": "120s"
+    "go.testTimeout": "120s",
+    "verilog.linting.linter": "slang",
+    "verilog.linting.iverilog.systemVerilog.standard": "SystemVerilog2012",
+    "cSpell.words": [
+        "dumpfile",
+        "dumpvars",
+        "endmodule",
+        "mosi",
+        "nettype",
+        "posedge"
+    ]
 }

@@ -1,0 +1,52 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build firmware simulation",
+            "type": "shell",
+            "command": "iverilog -g2012 -o build/sim display.sv",
+            "options": {
+                "cwd": "${workspaceFolder}/firmware"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Run firmware simulation",
+            "type": "shell",
+            "options": {
+                "cwd": "${workspaceFolder}/firmware"
+            },
+            "command": "build/sim",
+            "dependsOn": [
+                "Build firmware simulation"
+            ],
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "View simulation results",
+            "type": "shell",
+            "command": "open -a Scansion results.vcd",
+            "options": {
+                "cwd": "${workspaceFolder}/firmware"
+            },
+            "dependsOn": [
+                "Run firmware simulation"
+            ],
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+        }
+    ]
+}

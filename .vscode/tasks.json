@@ -6,7 +6,7 @@
         {
             "label": "Build firmware simulation",
             "type": "shell",
-            "command": "iverilog -g2012 -o build/sim display.sv",
+            "command": "iverilog -g2012 -o build/sim main.sv",
             "options": {
                 "cwd": "${workspaceFolder}/firmware"
             },
@@ -39,9 +39,6 @@
             "options": {
                 "cwd": "${workspaceFolder}/firmware"
             },
-            "dependsOn": [
-                "Run firmware simulation"
-            ],
             "problemMatcher": [],
             "group": {
                 "kind": "build",

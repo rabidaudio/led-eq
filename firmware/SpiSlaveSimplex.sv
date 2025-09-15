@@ -14,7 +14,7 @@ typedef enum { ACTIVE_LOW = 0, ACTIVE_HIGH = 1 } pin_direction_e;
   */
 module SpiSlaveSimplex #(
     parameter ORDER = MSB,
-    parameter CS_DIRECTION = ACTIVE_LOW,
+    parameter CS_ACTIVE = ACTIVE_LOW,
     parameter BYTE_INDEX_SIZE = 11 // roll over at 2048 bytes
 )(
     input master_clk,
@@ -25,29 +25,36 @@ module SpiSlaveSimplex #(
     output logic [BYTE_INDEX_SIZE:0] byte_index
 );
 
+    logic first_flag;
     logic [2:0] bit_index;
+    logic [7:0] buffer;
 
     always_ff @(posedge master_clk)
-        if (cs == CS_DIRECTION) begin
+        if (cs == CS_ACTIVE) begin
             // else load bit into data
-            if (ORDER == MSB) data <= { data[6:0], mosi };
-            else data <= { mosi, data[7:1] };
+            if (ORDER == MSB) buffer <= { buffer[6:0], mosi };
+            else buffer <= { mosi, buffer[7:1] };
 
-            if (bit_index == 7) begin
+            if (bit_index == 0 && first_flag) begin
                 data_ready <= 1;
                 byte_index <= byte_index + 1;
+                data <= buffer;
             end else begin
                 data_ready <= 0;
                 byte_index <= byte_index;
+                data <= data;
             end
             
             bit_index <= bit_index + 1;
+            first_flag <= 1;
         end else begin
             // if cs disabled, reset
-            data <= 0;
+            buffer <= 0;
             data_ready <= 0;
             bit_index <= 0;
             byte_index <= 0;
+            data <= data;
+            first_flag <= 0;
         end
 endmodule
 

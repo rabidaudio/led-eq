@@ -32,10 +32,15 @@ module SpiSlaveSimplex #(
             if (ORDER == MSB) buffer <= { buffer[6:0], mosi };
             else buffer <= { mosi, buffer[7:1] };
 
-            if (bit_index == 0 && first_flag) begin
-                data_avail <= 1;
-                byte_index <= byte_index + 1;
-                data <= buffer;
+            if (bit_index == 0) begin
+                if (first_flag) begin
+                    data_avail <= 1;
+                    byte_index <= byte_index + 1;
+                    data <= buffer;
+                end else begin
+                    first_flag <= 1;
+                    byte_index <= ~0;
+                end
             end else begin
                 data_avail <= 0;
                 byte_index <= byte_index;
@@ -49,7 +54,7 @@ module SpiSlaveSimplex #(
             buffer <= 0;
             data_avail <= 0;
             bit_index <= 0;
-            byte_index <= 0;
+            byte_index <= byte_index;
             data <= data;
             first_flag <= 0;
         end

@@ -4,7 +4,7 @@
 module main;
     logic test_clk;
 
-    localparam TEST_LENGTH = 5*1000*1000; // 5ms @ 1ns
+    localparam TEST_LENGTH = 5*1000; // 5us @ 1ns
 
     Test_SpiSlaveSimplex test1(.test_spi_clk(test_clk));
 
@@ -13,7 +13,7 @@ module main;
         $dumpvars(0, main);
     end
 
-    initial begin
+    initial begin : main_clock
         test_clk = 0;
         for (int i = 0; i < TEST_LENGTH; i++) begin
             #1000; // 1MHz

@@ -4,12 +4,12 @@
 module main;
     logic test_clk;
 
-    localparam TEST_LENGTH = 10*1000*1000*1000; // 10s @ 1ns
+    localparam TEST_LENGTH = 5*1000*1000; // 5ms @ 1ns
 
     Test_SpiSlaveSimplex test1(.test_spi_clk(test_clk));
 
     initial begin
-        $dumpfile("results.vcd");
+        $dumpfile("build/results.vcd");
         $dumpvars(0, main);
     end
 

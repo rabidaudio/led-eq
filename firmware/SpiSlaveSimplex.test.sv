@@ -11,11 +11,11 @@ module Test_SpiSlaveSimplex(
     logic [5:0] test_byte_index;
 
     SpiSlaveSimplex #(.BYTE_INDEX_SIZE(5)) test_spi_slave_simplex(
-        .master_clk(test_spi_clk),
+        .sck(test_spi_clk),
         .cs(test_cs),
         .mosi(test_mosi),
         .data(test_data_out),
-        .data_ready(test_data_ready),
+        .data_avail(test_data_ready),
         .byte_index(test_byte_index)
     );
 

@@ -4,11 +4,8 @@ typedef enum { ACTIVE_LOW = 0, ACTIVE_HIGH = 1 } pin_direction_e;
 /**
   * The SpiSlaveSimplex module is an SPI slave
   * with only read capabilities. Every time a full
-  * byte is loaded into data, the data_ready pin
+  * byte is loaded into data, the data_avail pin
   * goes high for one cycle.
-  * The clock is expected to be an external input
-  * from the master device, so the system clock
-  * will need to be greater than master_clk / 8.
   * byte_index will indicate the current byte
   * number since the start of the transaction.
   */
@@ -17,11 +14,11 @@ module SpiSlaveSimplex #(
     parameter CS_ACTIVE = ACTIVE_LOW,
     parameter BYTE_INDEX_SIZE = 11 // roll over at 2048 bytes
 )(
-    input master_clk,
+    input sck,
     input cs,
     input mosi,
     output logic [7:0] data,
-    output logic data_ready,
+    output logic data_avail,
     output logic [BYTE_INDEX_SIZE:0] byte_index
 );
 
@@ -29,18 +26,18 @@ module SpiSlaveSimplex #(
     logic [2:0] bit_index;
     logic [7:0] buffer;
 
-    always_ff @(posedge master_clk)
+    always_ff @(posedge sck)
         if (cs == CS_ACTIVE) begin
             // else load bit into data
             if (ORDER == MSB) buffer <= { buffer[6:0], mosi };
             else buffer <= { mosi, buffer[7:1] };
 
             if (bit_index == 0 && first_flag) begin
-                data_ready <= 1;
+                data_avail <= 1;
                 byte_index <= byte_index + 1;
                 data <= buffer;
             end else begin
-                data_ready <= 0;
+                data_avail <= 0;
                 byte_index <= byte_index;
                 data <= data;
             end
@@ -50,7 +47,7 @@ module SpiSlaveSimplex #(
         end else begin
             // if cs disabled, reset
             buffer <= 0;
-            data_ready <= 0;
+            data_avail <= 0;
             bit_index <= 0;
             byte_index <= 0;
             data <= data;

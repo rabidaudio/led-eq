@@ -39,20 +39,21 @@ module SpiSlaveSimplex #(
             bit_index <= '1;
             prev_cs <= cs;
         end else begin
+            logic [7:0] new_data;
+            
+            new_data = { buffer[6:0], mosi };
+
             if (cs == CS_ACTIVE) begin
                 if (bit_index == 0) begin
                     data_avail <= 1;
-                    byte_index <=  byte_index + 1;                   
+                    byte_index <= byte_index + 1;
+                    data <= new_data;
                 end else begin
                     data_avail <= 0;
                     byte_index <= byte_index;
                 end
 
-                if (bit_index == 7) data <= buffer;
-                else data <= data;
-
-                // buffer[7-bit_index] <= mosi;
-                buffer <= { buffer[6:0], mosi };
+                buffer <= new_data;
                 bit_index <= bit_index - 1;
                 // prev_cs <= cs;
             end else begin

@@ -34,7 +34,7 @@ module SpiSlaveSimplex_TestCounter (
     );
 
     logic [7:0] g_data;
-    GoldenMonitor #(.DELAY(10), .WIDTH(8)) gm_data (
+    GoldenMonitor #(.DELAY(9), .WIDTH(8)) gm_data (
         .clk(t_clk),
         .enable('1),
         .golden(g_data),
@@ -47,17 +47,31 @@ module SpiSlaveSimplex_TestCounter (
         t_mosi <= 0;
         b <= 7;
         g_data <= 0;
-        @(posedge t_reset);
         t_cs <= 1;
+        @(negedge t_reset);
+        repeat (10) @(posedge t_clk);
 
         while (1) begin
+            logic [7:0] g_data_next;
+
+            
             for (int i = 0; i < 8; i++) begin
                 @(posedge t_clk);
                 t_cs <= 0;
                 t_mosi <= g_data[b];
                 b <= b - 1;
             end
+
+            //g_data_next = g_data + 1;
+            //t_mosi <= g_data[b];
             g_data <= g_data + 1;
+
+            // if (g_data % 8 == 0) begin
+            //     @(posedge t_clk);
+            //     t_cs <= 1; 
+            //     repeat (31) @(posedge t_clk);
+            // end
+
         end
     end
 endmodule

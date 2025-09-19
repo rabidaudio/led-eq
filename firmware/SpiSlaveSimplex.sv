@@ -25,41 +25,35 @@ module SpiSlaveSimplex #(
     output logic data_avail,
     output logic [$clog2(BYTE_COUNTER_MAX-1)-1:0] byte_index
 );
-
-    logic prev_cs;
     logic [2:0] bit_index;
     logic [7:0] buffer;
 
     always_ff @(posedge sck) begin
+        logic [7:0] new_data;
+        
+        new_data = { buffer[6:0], mosi };
+
+        if (cs == CS_ACTIVE) begin
+            if (bit_index == 0) begin
+                byte_index <= byte_index + 1;
+                data <= new_data;
+            end
+            
+            data_avail <= bit_index == 0;
+            buffer <= new_data;
+            bit_index <= bit_index - 1;
+        end else begin
+            data_avail <= 0;
+            byte_index <= 0;
+        end
+
         if (reset) begin
             data <= 0;
             data_avail <= 0;
             byte_index <= '1;
             buffer <= 0;
             bit_index <= '1;
-            prev_cs <= cs;
-        end else begin
-            logic [7:0] new_data;
-            
-            new_data = { buffer[6:0], mosi };
-
-            if (cs == CS_ACTIVE) begin
-                if (bit_index == 0) begin
-                    data_avail <= 1;
-                    byte_index <= byte_index + 1;
-                    data <= new_data;
-                end else begin
-                    data_avail <= 0;
-                    byte_index <= byte_index;
-                end
-
-                buffer <= new_data;
-                bit_index <= bit_index - 1;
-                // prev_cs <= cs;
-            end else begin
-                // TODO
-            end
-        end
+        end 
     end
 endmodule
 

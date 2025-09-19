@@ -1,3 +1,6 @@
+`ifndef __SpiSlaveSimplex__
+`define __SpiSlaveSimplex__
+
 typedef enum { MSB, LSB } bit_order_e;
 typedef enum { ACTIVE_LOW = 0, ACTIVE_HIGH = 1 } pin_direction_e;
 
@@ -24,7 +27,6 @@ module SpiSlaveSimplex #(
 );
 
     logic prev_cs;
-    // logic first_flag;
     logic [2:0] bit_index;
     logic [7:0] buffer;
 
@@ -58,74 +60,6 @@ module SpiSlaveSimplex #(
             end
         end
     end
-
-    // always_ff @(posedge sck) begin
-    //     prev_cs <= cs;
-    //     byte_index <= byte_index;
-    //     data <= data;
-    //     data_avail <= 0;
-
-    //     if (prev_cs != CS_ACTIVE && cs == CS_ACTIVE) begin
-    //         // start transaction
-            
-    //         buffer <= 0;
-    //         first_flag <= 1;
-            
-    //         if (ORDER == MSB) buffer <= { buffer[6:0], mosi };
-    //         else buffer <= { mosi, buffer[7:1] };
-    //         bit_index <= 1;
-
-    //     end else if (prev_cs == CS_ACTIVE && cs != CS_ACTIVE) begin
-    //         // end transaction
-                        
-
-    //     end else if (cs == CS_ACTIVE) begin
-    //         // continue transaction
-
-    //         if (bit_index == 0) begin
-    //             // send out byte
-    //             if (first_flag) byte_index <= 0;
-    //             else byte_index <= byte_index + 1;
-    //             data_avail <= 1;
-    //         end else begin
-                
-    //         end
-
-    //         bit_index <= bit_index + 1;
-
-    //     end else begin
-    //         // idle
-    //         buffer <= 0;
-    //         bit_index <= 0;
-    //     end
-
-    //     if (cs == CS_ACTIVE) begin
-    //         // else load bit into data
-    //         if (ORDER == MSB) buffer <= { buffer[6:0], mosi };
-    //         else buffer <= { mosi, buffer[7:1] };
-
-    //         if (bit_index == 0) begin
-    //             if (first_flag) begin
-    //                 data_avail <= 1;
-    //                 byte_index <= byte_index + 1;
-    //                 data <= buffer;
-    //             end else begin
-    //                 first_flag <= 1;
-    //                 byte_index <= '1;
-    //             end
-    //         end else begin
-    //             data_avail <= 0;
-    //             byte_index <= byte_index;
-    //             data <= data;
-    //         end
-            
-    //         bit_index <= bit_index + 1;
-    //         first_flag <= 1;
-    //     end else begin
-    //         // if cs disabled, reset
-
-    //         first_flag <= 0;
-    //     end
-    // end
 endmodule
 
+`endif // __SpiSlaveSimplex__

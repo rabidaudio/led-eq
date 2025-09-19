@@ -6,7 +6,7 @@
         {
             "label": "Build firmware simulation",
             "type": "shell",
-            "command": "iverilog -g2012 -gsupported-assertions -o build/sim.vvp main.sv",
+            "command": "iverilog -g2012 -gsupported-assertions -o build/sim.vvp testbench.sv",
             "options": {
                 "cwd": "${workspaceFolder}/firmware"
             },

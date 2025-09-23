@@ -1,6 +1,27 @@
 `include "ResetGenerator.sv"
 `include "LEDMatrix.sv"
 
+module ClockDivider #(
+    parameter WIDTH = 2
+) (input clk, input reset, output logic slow_clk);
+
+    logic [WIDTH-1:0] counter;
+
+    always_ff @(posedge clk) begin
+        if (counter == 0) begin
+            slow_clk <= 1;
+        end else begin
+            counter <= counter - 1;
+            slow_clk <= 0;
+        end
+
+        if (reset) begin
+            slow_clk <= 0;
+            counter <= 0;
+        end
+    end
+endmodule
+
 module top (
     input clk,
     output [15:0] hub_75_o
@@ -9,17 +30,17 @@ module top (
 
     ResetGenerator reset_gen (.clk(clk), .reset(reset));
 
-    LEDMatrix matrix (
-        .clk(clk),
+    // logic led_clk;
+
+    ClockDivider #(.WIDTH(22)) clk_div (.clk(clk), .reset(reset), .slow_clk(hub_75_o[12]));
+
+    LEDMatrix_32x16_1to8 matrix (
+        .clk(hub_75_o[12]),
         .reset(reset),
-        .red({ hub_75_o[0], hub_75_o[4] }),
-        .green({ hub_75_o[1], hub_75_o[5] }),
-        .blue({ hub_75_o[2], hub_75_o[6] }),
-        .row_select(hub_75_o[10:8]),
-        .out_clk(hub_75_o[12]),
-        .lat(hub_75_o[13]),
-        .oe(hub_75_o[14])
+        .hub_75(hub_75_o)
     );
+
+    // always_comb hub_75_o[12] = led_clk; // STOPSHIP
 
     always_comb begin : ground
         hub_75_o[3] <= 0;

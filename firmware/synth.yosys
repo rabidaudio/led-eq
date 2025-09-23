@@ -1,0 +1,2 @@
+read_verilog -sv top.sv
+synth_ice40 -top top -json build/proj.json

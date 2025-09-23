@@ -1,5 +1,6 @@
 `timescale 1ns/10ps
 `include "SpiSlaveSimplex.test.sv"
+`include "LEDMatrix.test.sv"
 
 module testbench;
     localparam realtime PERIOD = 10;
@@ -26,4 +27,5 @@ module testbench;
     end
 
     SpiSlaveSimplex_Tests sss_tests (t_clk, t_reset);
+    LEDMatrix_Test led_tests (t_clk, t_reset);
 endmodule

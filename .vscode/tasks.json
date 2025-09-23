@@ -43,7 +43,27 @@
             "group": {
                 "kind": "build",
                 "isDefault": false
+            }
+        },
+        {
+            "label": "Synthesize firmware",
+            "type": "shell",
+            "command": "${workspaceFolder}/firmware/build.sh",
+            "options": {
+                "cwd": "${workspaceFolder}/firmware"
+            }
+        },
+        {
+            "label": "Load firmware",
+            "type": "shell",
+            "command": "cp build/proj.bin /Volumes/iCELink",
+            "options": {
+                "cwd": "${workspaceFolder}/firmware"
             },
+            "dependsOn": [
+                "Synthesize firmware"
+            ],
+            "problemMatcher": []
         }
     ]
 }

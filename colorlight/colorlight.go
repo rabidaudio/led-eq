@@ -1,16 +1,16 @@
 package colorlight
 
 import (
-	"net"
+	"io"
+	"log"
 
 	"github.com/mdlayher/ethernet"
 )
 
-func must[T any](obj T, err error) T {
-	if err != nil {
-		panic(err)
-	}
-	return obj
+type EthInterface interface {
+	io.Closer
+	Send(ethernet.Frame) error
+	ReceiveBroadcast() (ethernet.Frame, error)
 }
 
 // Brightness of the display, from 0x00 (off) to 0xFF (full)
@@ -27,7 +27,7 @@ type Canvas [][]Pixel
 type Colorlight struct {
 	Brightness Brightness
 	ColorTemp  ColorTemp
-	iface      *net.Interface
+	iface      EthInterface
 	info       CardInfo
 }
 
@@ -38,24 +38,9 @@ func New() Colorlight {
 	}
 }
 
-func (cl *Colorlight) Open(ifaceName string) error {
-	ifi, err := net.InterfaceByName(ifaceName)
-	if err != nil {
-		return err
-	}
-	cl.iface = ifi
-
-	err = cl.send(DetectCardMessage{})
-	if err != nil {
-		return err
-	}
-	var f ethernet.Frame // TODO: receive
-	ci, err := ParseCardInfo(f)
-	if err != nil {
-		cl.Close()
-		return err
-	}
-	err = cl.send(DetectCardResponseAckMessage{ControllerID: ci.ControllerID})
+func (cl *Colorlight) Open(iface EthInterface) error {
+	cl.iface = iface
+	ci, err := cl.detectCard()
 	if err != nil {
 		cl.Close()
 		return err
@@ -66,11 +51,6 @@ func (cl *Colorlight) Open(ifaceName string) error {
 
 func (cl *Colorlight) Dims() (width, height uint16) {
 	return cl.info.NumColumns, cl.info.NumRows
-}
-
-func (cl *Colorlight) send(m Message) error {
-	// TODO
-	return nil
 }
 
 func (cl *Colorlight) Draw(c Canvas) (err error) {
@@ -89,6 +69,41 @@ func (cl *Colorlight) Draw(c Canvas) (err error) {
 }
 
 func (cl *Colorlight) Close() error {
-	cl.iface = nil
-	return nil
+	defer func() { cl.iface = nil }()
+	return cl.iface.Close()
+}
+
+func (cl *Colorlight) send(m Message) error {
+	return cl.iface.Send(m.Frame())
+}
+
+func (cl *Colorlight) receiveMatching(matcher func(ethernet.Frame) bool) (f ethernet.Frame, err error) {
+	for {
+		f, err = cl.iface.ReceiveBroadcast()
+		if err != nil {
+			return
+		}
+		if matcher(f) {
+			return
+		} else {
+			log.Printf("colorlight: ignoring broadcast (no match): %v", f)
+		}
+	}
+}
+
+func (cl *Colorlight) detectCard() (ci CardInfo, err error) {
+	err = cl.send(DetectCardMessage{})
+	if err != nil {
+		return
+	}
+	f, err := cl.receiveMatching(func(f ethernet.Frame) bool {
+		_, err := ParseCardInfo(f)
+		return err == nil
+	})
+	if err != nil {
+		return
+	}
+	ci, _ = ParseCardInfo(f)
+	err = cl.send(DetectCardResponseAckMessage{ControllerID: ci.ControllerID})
+	return
 }

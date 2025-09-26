@@ -13,6 +13,8 @@ var srcAddr = must(net.ParseMAC("22:22:33:44:55:66"))
 var destAddr = must(net.ParseMAC("11:22:33:44:55:66"))
 var bcastAddr = must(net.ParseMAC("FF:FF:FF:FF:FF:FF"))
 
+// https://hkubota.wordpress.com/2022/01/31/winter-project-colorlight-5a-75b-protocol/
+
 type MsgType ethernet.EtherType
 
 const (
@@ -27,7 +29,9 @@ type Message interface {
 	Frame() ethernet.Frame
 }
 
-type BrightnessMessage struct{ Brightness Brightness }
+type BrightnessMessage struct {
+	Brightness Brightness
+}
 
 func (bm BrightnessMessage) Frame() ethernet.Frame {
 	pl := make([]byte, 63)
@@ -121,7 +125,7 @@ func (dm DetectCardResponseAckMessage) Frame() ethernet.Frame {
 }
 
 type CardInfo struct {
-	Version      uint8 // 5A
+	Version      uint8
 	VersionMajor uint8
 	VersionMinor uint8
 	NumColumns   uint16
@@ -144,6 +148,10 @@ func ParseCardInfo(f ethernet.Frame) (ci CardInfo, err error) {
 		err = fmt.Errorf("colorlight: unable to parse card info: wrong src addr, expected %v but was %v", bcastAddr, f.Destination)
 		return
 	}
+	if len(f.Payload) < 1056 {
+		err = fmt.Errorf("colorlight: unable to parse card info: incomplete payload, expected 1056 bytes but was %d", len(f.Payload))
+		return
+	}
 	ci.Version = f.Payload[0]
 	ci.VersionMajor = f.Payload[1]
 	ci.VersionMinor = f.Payload[2]
@@ -153,4 +161,11 @@ func ParseCardInfo(f ethernet.Frame) (ci CardInfo, err error) {
 	ci.RuntimeMs = binary.BigEndian.Uint32(f.Payload[45:48])
 	ci.ControllerID = f.Payload[62]
 	return
+}
+
+func must[T any](obj T, err error) T {
+	if err != nil {
+		panic(err)
+	}
+	return obj
 }

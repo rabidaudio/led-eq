@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/rabidaudio/led-eq/colorlight"
+	"github.com/rabidaudio/led-eq/ethraw"
 )
 
 type ColorlightDisplay struct {
@@ -10,7 +11,12 @@ type ColorlightDisplay struct {
 }
 
 func (cd *ColorlightDisplay) Open() error {
-	err := cd.cl.Open("lo0")
+	pface, err := ethraw.New("lo0")
+	if err != nil {
+		return err
+	}
+	cd.cl = colorlight.New()
+	err = cd.cl.Open(pface)
 	if err != nil {
 		return err
 	}

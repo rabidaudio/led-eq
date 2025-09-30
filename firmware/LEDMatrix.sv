@@ -16,8 +16,8 @@ module LEDMatrix_32x16_1to8 (
         output [15:0] hub_75
     );
     LEDMatrix #(
-        .WIDTH(16),
-        .HEIGHT(32),
+        .WIDTH(32),
+        .HEIGHT(16),
         .SCAN_RATE(8),
         .COLOR_WIDTH(2)
     ) matrix (
@@ -28,10 +28,18 @@ module LEDMatrix_32x16_1to8 (
         .green({ hub_75[1], hub_75[5] }),
         .blue({ hub_75[2], hub_75[6] }),
         .row_select(hub_75[10:8]),
-        // .out_clk(hub_75[12]),
         .lat(hub_75[13]),
         .oe_n(hub_75[14])
     );
+
+    always_comb hub_75[12] = clk;
+
+    always_comb begin : ground
+        hub_75[3] <= 0;
+        hub_75[7] <= 0;
+        hub_75[11] <= 0;
+        hub_75[15] <= 0;
+    end
 endmodule
 
 /**
@@ -52,17 +60,16 @@ module LEDMatrix #(
     output logic [COLOR_WIDTH-1:0] green,
     output logic [COLOR_WIDTH-1:0] blue,
     output logic [$clog2(SCAN_RATE-1)-1:0] row_select,
-    // output logic out_clk,
     output logic lat,
     output logic oe_n
 );
     localparam PIXELS_PER_SCAN = (WIDTH*HEIGHT)/SCAN_RATE/COLOR_WIDTH;
 
     // STOPSHIP
-    // logic display [16] [32];
-    // initial begin
-    //     $readmemb("hello.b.mem", display);
-    // end
+    logic display [16] [32];
+    initial begin
+        $readmemb("hello.b.mem", display);
+    end
 
     logic [16:0] pixel_index;
 
@@ -70,22 +77,21 @@ module LEDMatrix #(
         if (pixel_index == 0) pixel_index <= PIXELS_PER_SCAN;
         else pixel_index <= pixel_index - 1;
 
-        // red[0] <= display[row_select][pixel_index];
-        // red[1] <= display[row_select+SCAN_RATE][pixel_index];
+        red[0] <= display[row_select][pixel_index];
+        red[1] <= display[row_select+SCAN_RATE][pixel_index];
 
         lat <= pixel_index == 0;
 
         if (pixel_index == 0) row_select <= row_select + 1;
 
         if (reset) begin
-            red <= 'b01;
-            green <= 'b10;
-            blue <= 0;
+            red <= 0; //'b01;
+            green <= 0;
+            blue <= 0;// 'b10;
             pixel_index <= PIXELS_PER_SCAN;
             row_select <= 0;
 
             oe_n <= 0; // turn on TODO pwm
-            // out_clk <= 0;
         end
     end
 

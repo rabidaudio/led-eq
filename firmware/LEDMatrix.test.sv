@@ -23,7 +23,6 @@ module LEDMatrix_Test (
         .green(t_parallel[3:2]),
         .blue(t_parallel[1:0]),
         .row_select(t_row_select),
-        // .out_clk(t_out_clk),
         .lat(t_lat),
         .oe_n(t_oe_n)
     );

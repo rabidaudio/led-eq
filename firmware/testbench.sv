@@ -1,6 +1,7 @@
 `timescale 1ns/10ps
 `include "SpiSlaveSimplex.test.sv"
 `include "LEDMatrix.test.sv"
+`include "PWMGenerator.test.sv"
 `include "top.sv"
 
 module testbench;
@@ -29,6 +30,7 @@ module testbench;
 
     SpiSlaveSimplex_Tests sss_tests (t_clk, t_reset);
     LEDMatrix_Test led_tests (t_clk, t_reset);
+    PWMGenerator_Tests pwm_tests (t_clk, t_reset);
 
     logic [15:0] t_hub_75;
     top #(.RESET_AFTER(8)) top_test (.clk(t_clk), .hub_75_o(t_hub_75));

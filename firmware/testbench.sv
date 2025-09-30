@@ -31,5 +31,5 @@ module testbench;
     LEDMatrix_Test led_tests (t_clk, t_reset);
 
     logic [15:0] t_hub_75;
-    top top_test (t_clk, t_hub_75);
+    top #(.RESET_AFTER(8)) top_test (.clk(t_clk), .hub_75_o(t_hub_75));
 endmodule

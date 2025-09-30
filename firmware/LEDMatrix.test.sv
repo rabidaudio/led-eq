@@ -12,8 +12,8 @@ module LEDMatrix_Test (
     logic t_oe_n;
 
     LEDMatrix #(
-        .WIDTH(16),
-        .HEIGHT(32),
+        .WIDTH(32),
+        .HEIGHT(16),
         .SCAN_RATE(8),
         .COLOR_WIDTH(2)
     ) dut (

@@ -2,6 +2,9 @@
 `define __LEDDMATRIX__
 
 `include "ClockDivider.sv"
+`include "PWMGenerator.sv"
+
+`define MAX(a, b) (((``a) > (``b)) ? (``a) : (``b))
 
 /**
  * 32x16 HUB75 display with 2 bits for each color,
@@ -15,6 +18,7 @@
 module LEDMatrix_32x16_1to8 (
         input clk,
         input reset,
+        input [7:0] brightness,
         output logic [15:0] hub_75
     );
     LEDMatrix #(
@@ -25,6 +29,7 @@ module LEDMatrix_32x16_1to8 (
     ) matrix (
         .clk(clk),
         .reset(reset),
+        .brightness(brightness),
 
         .red({ hub_75[0], hub_75[4] }),
         .green({ hub_75[1], hub_75[5] }),
@@ -43,8 +48,6 @@ module LEDMatrix_32x16_1to8 (
     end
 endmodule
 
-`define MAX(a, b) (((``a) > (``b)) ? (``a) : (``b))
-
 /**
  * LEDMatrix drives HUB75-style led matrix displays. These displays
  * update multiple scan lines in parallel using a shift register.
@@ -58,6 +61,7 @@ module LEDMatrix #(
 ) (
     input clk,
     input reset,
+    input [7:0] brightness,
 
     output logic [COLOR_WIDTH-1:0] red,
     output logic [COLOR_WIDTH-1:0] green,
@@ -81,6 +85,7 @@ module LEDMatrix #(
     logic [$clog2(SHIFT_CYCLES-1)-1:0] counter;
     logic [$clog2(`MAX(SHIFT_CYCLES, `MAX(LATCH_CYCLES, DWELL_CYCLES)))-1:0] pixel_index;
 
+    logic enable;
     logic low_clk;
     logic about_to_rise;
     logic about_to_fall;
@@ -94,6 +99,25 @@ module LEDMatrix #(
     );
 
     always_comb out_clk = (low_clk & state == SHIFT);
+
+    logic b_end;
+    logic b_pwm;
+    logic [8:0] b_duty;
+
+    // Generate an 8bit pwm signal with value of `brightness`.
+    // Gate this signal with `enable` to dim the LEDs when on.
+    PWMGenerator brightness_ctrl (
+        .clk(clk),
+        .reset(reset),
+        .update_parameters(b_end),
+        .pwm_period(8'hff),
+        .pwm_duty_cycle(b_duty),
+        .period_end(b_end),
+        .pwm(b_pwm)
+    );
+    
+    always_comb oe_n = !(enable & b_pwm);
+    always_comb b_duty = brightness + 1;
  
     always_ff @(posedge clk) begin
         if (about_to_fall) begin // trigger logic on falling edge of led_clk
@@ -106,12 +130,11 @@ module LEDMatrix #(
                     pixel_index <= pixel_index + 1;
                 end
                 LATCH: begin
-                    oe_n <= 1; // disable
+                    enable <= 0;
                     lat <= ~lat;
                     if (counter == 1) row_select <= row_select + 1;
                 end
-                // DWELL: nothing to do
-                DWELL: oe_n <= 0; // disable
+                DWELL: enable <= 1;
             endcase
 
             // state transition
@@ -143,7 +166,7 @@ module LEDMatrix #(
             state <= DWELL;
             counter <= 0;
 
-            oe_n <= 1; // turn on TODO pwm
+            enable <= 0;
         end
     end
 

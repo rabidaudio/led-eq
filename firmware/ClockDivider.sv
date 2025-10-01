@@ -2,7 +2,7 @@
 `define __CLOCK_DIVIDER__
 
 module ClockDivider #(
-    parameter WIDTH = 2
+    parameter DIVIDER = (1 << 4)
 ) (
     input clk,
     input reset,
@@ -10,20 +10,21 @@ module ClockDivider #(
     output logic next_rise,
     output logic next_fall
 );
-
+    localparam WIDTH = $clog2(DIVIDER);
     logic [WIDTH-1:0] counter;
 
     always_ff @(posedge clk) begin
-        if (counter[WIDTH-1]) begin
+        if (counter >= (DIVIDER/2)) begin
             slow_clk <= 1;
             counter <= counter - 1;
         end else begin
-            counter <= counter - 1;
+            if (counter == 0) counter <= DIVIDER-1;
+            else counter <= counter - 1;
             slow_clk <= 0;
         end
 
         next_rise <= counter == 0;
-        next_fall <= counter == (1 << (WIDTH - 1));
+        next_fall <= counter == DIVIDER/2;
 
         if (reset) begin
             slow_clk <= 0;

@@ -83,7 +83,8 @@ module SpiSlaveSimplex_TestCounter (
         end
     end
 
-    always_ff @(posedge t_clk) begin
+    // always instead of always_ff suppress a warning
+    always/*_ff*/ @(posedge t_clk) begin
         if (t_data_avail) data_out.push_back(t_data);
     end
 endmodule

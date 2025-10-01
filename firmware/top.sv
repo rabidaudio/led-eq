@@ -14,7 +14,7 @@ module top #(
     LEDMatrix_32x16_1to8 matrix (
         .clk(clk),
         .reset(reset),
-        .brightness(8'h7f), // half brightness
+        // .brightness(4'h8), // half brightness
         .hub_75(hub_75_o)
     );
 endmodule

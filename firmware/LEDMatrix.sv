@@ -2,7 +2,6 @@
 `define __LEDDMATRIX__
 
 `include "ClockDivider.sv"
-`include "PWMGenerator.sv"
 
 `define MAX(a, b) (((``a) > (``b)) ? (``a) : (``b))
 
@@ -18,18 +17,20 @@
 module LEDMatrix_32x16_1to8 (
         input clk,
         input reset,
-        input [7:0] brightness,
+        // input [7:0] brightness,
         output logic [15:0] hub_75
     );
     LEDMatrix #(
         .WIDTH(32),
         .HEIGHT(16),
         .SCAN_RATE(8),
-        .COLOR_WIDTH(2)
+        .COLOR_WIDTH(2),
+        .DWELL_CYCLES(16),
+        .CLOCK_DIVIDER(6)
     ) matrix (
         .clk(clk),
         .reset(reset),
-        .brightness(brightness),
+        // .brightness(brightness),
 
         .red({ hub_75[0], hub_75[4] }),
         .green({ hub_75[1], hub_75[5] }),
@@ -40,12 +41,11 @@ module LEDMatrix_32x16_1to8 (
         .oe_n(hub_75[14])
     );
 
-    always_comb begin : ground
-        hub_75[3] = 0;
-        hub_75[7] = 0;
-        hub_75[11] = 0;
-        hub_75[15] = 0;
-    end
+    // assign instead of always_comb to suppress warning
+    assign hub_75[3] = 0;
+    assign hub_75[7] = 0;
+    assign hub_75[11] = 0;
+    assign hub_75[15] = 0;
 endmodule
 
 /**
@@ -53,15 +53,24 @@ endmodule
  * update multiple scan lines in parallel using a shift register.
  */
 module LEDMatrix #(
-    // parameter conf = known_configs[m32x16_1to8]
     parameter WIDTH = 32,
     parameter HEIGHT = 32,
     parameter SCAN_RATE = 16,
-    parameter COLOR_WIDTH = (HEIGHT/SCAN_RATE)
+    parameter COLOR_WIDTH = (HEIGHT/SCAN_RATE),
+    parameter BIT_DEPTH = 6,
+    // The amount of time for the LEDs be on for the LSB bitplane.
+    // This parameter controls the max perceived brightness, the max framerate,
+    // and the resolution of `brightness` in some complex ways. See:
+    // https://docs.google.com/spreadsheets/d/1fURkK-2R26DpsshLflX2rYrjb4WjTQQUoPvTYIlk8Hc/edit?gid=1681767793#gid=1681767793
+    parameter DWELL_CYCLES = 32,
+    // A divider from the system clock to run the display with
+    parameter CLOCK_DIVIDER = 2
 ) (
     input clk,
     input reset,
-    input [7:0] brightness,
+    // number of cycles of DWELL_CYCLES the LEDs will actually be on, from 0 (0%)
+    // to DWELL_CYCLES (100%), inclusive
+    input [$clog2(DWELL_CYCLES)-1:0] brightness,
 
     output logic [COLOR_WIDTH-1:0] red,
     output logic [COLOR_WIDTH-1:0] green,
@@ -71,68 +80,78 @@ module LEDMatrix #(
     output logic lat,
     output logic oe_n
 );
-    localparam SHIFT_CYCLES = (WIDTH*HEIGHT)/SCAN_RATE/COLOR_WIDTH;;
+    // how many (LED clock) cycles it takes to shift out one row
+    localparam SHIFT_CYCLES = (WIDTH*HEIGHT)/SCAN_RATE/COLOR_WIDTH;
+    // how many (LED clock) cycles it takes to latch out the shifted data.
+    // LEDs must be off (oe_n high) while latch is taking place.
     localparam LATCH_CYCLES = 2;
-    localparam DWELL_CYCLES = SHIFT_CYCLES-LATCH_CYCLES;
 
     // STOPSHIP
-    logic display [HEIGHT] [WIDTH];
-    initial begin
-        $readmemb("hello.b.mem", display);
-    end
+    // logic display [HEIGHT] [WIDTH];
+    // initial begin
+    //     $readmemb("hello.b.mem", display);
+    // end
 
-    enum logic [2:0] { SHIFT = 1, LATCH = 2, DWELL = 3 } state;
-    logic [$clog2(SHIFT_CYCLES-1)-1:0] counter;
-    logic [$clog2(`MAX(SHIFT_CYCLES, `MAX(LATCH_CYCLES, DWELL_CYCLES)))-1:0] pixel_index;
+    // inputs: fixed dwell time
+    // where "dwell" = period of time on (*2^bit depth)
+    // period max(shift+latch time, dwell + latch time)
+    // first iteration:
+    //      shift, latch, dwell
+    // second iteration:
+    //      dwell, latch (with shift just in time)
+    enum logic [2:0] {
+        SHIFT = 1, // LEDs off, shift out the next row of data
+        DWELL = 2, // LEDs on, wait for DWELL_CYCLES*2^n where n is the current bit plane
+        LATCH = 3  // LEDs off, latch the row and increment the row counter
+    } state;
+    localparam MAX_DWELL_CYCLES = (1 << (BIT_DEPTH-1)) * DWELL_CYCLES;
+    localparam COUNTER_SIZE = `MAX(SHIFT_CYCLES, `MAX(LATCH_CYCLES, MAX_DWELL_CYCLES));
+    // core counter until the next state transition
+    logic [$clog2(COUNTER_SIZE)-1:0] counter;
 
+    // which pixel are we currently shifting out
+    logic [$clog2(SHIFT_CYCLES-1)-1:0] pixel_index;
+
+    // whether  the LEDs be on
     logic enable;
+    // the system clock divided by CLOCK_DIVIDER
     logic low_clk;
-    logic about_to_rise;
+    // pulled high one system clock before low_clk will fall.
+    // this is where state changes should be made so that they
+    // will be picked up on the next rising edge of low_clk
     logic about_to_fall;
 
-    ClockDivider #(.WIDTH(4)) clk_div (
+    ClockDivider #(.DIVIDER(CLOCK_DIVIDER)) clk_div (
         .clk(clk),
         .reset(reset),
         .slow_clk(low_clk),
-        .next_rise(about_to_rise),
         .next_fall(about_to_fall)
     );
 
+    // out_clk should only tick while shifting
     always_comb out_clk = (low_clk & state == SHIFT);
-
-    logic b_end;
-    logic b_pwm;
-    logic [8:0] b_duty;
-
-    // Generate an 8bit pwm signal with value of `brightness`.
-    // Gate this signal with `enable` to dim the LEDs when on.
-    PWMGenerator brightness_ctrl (
-        .clk(clk),
-        .reset(reset),
-        .update_parameters(b_end),
-        .pwm_period(8'hff),
-        .pwm_duty_cycle(b_duty),
-        .period_end(b_end),
-        .pwm(b_pwm)
-    );
     
-    always_comb oe_n = !(enable & b_pwm);
-    always_comb b_duty = brightness + 1;
+    always_comb oe_n = !(enable /*& b_pwm*/); // TODO: brightness
  
     always_ff @(posedge clk) begin
         if (about_to_fall) begin // trigger logic on falling edge of led_clk
+
             case (state)
                 SHIFT: begin
                     // shift out pixels
-                    red[1] <= display[(row_select-1)][pixel_index];
-                    red[0] <= display[(row_select-1)+SCAN_RATE][pixel_index];
+                    // red[1] <= display[(row_select+1)][pixel_index];
+                    // red[0] <= display[(row_select+1)+SCAN_RATE][pixel_index];
+
+                    red[0] <= pixel_index[0];
+                    red[1] <= pixel_index[1];
 
                     pixel_index <= pixel_index + 1;
+                    enable <= 0;
                 end
                 LATCH: begin
                     enable <= 0;
                     lat <= ~lat;
-                    if (counter == 1) row_select <= row_select + 1;
+                    if (counter == 1) row_select <= row_select + 1; // show the row we just shifted out
                 end
                 DWELL: enable <= 1;
             endcase
@@ -141,16 +160,16 @@ module LEDMatrix #(
             counter <= counter - 1;
             if (counter == 0) begin
                 if (state == SHIFT) begin
+                    state <= DWELL;
+                    state <= DWELL;
+                    counter <= DWELL_CYCLES-1; // TODO: account for current bitplane
+                end else if (state == DWELL) begin
                     state <= LATCH;
                     counter <= LATCH_CYCLES-1;
-
                 end else if (state == LATCH) begin
-                    state <= DWELL;
-                    counter <= DWELL_CYCLES-1;
-                end else if (state == DWELL) begin
                     state <= SHIFT;
                     counter <= SHIFT_CYCLES-1;
-
+                    // prepare to shift
                     pixel_index <= 0;
                 end
             end

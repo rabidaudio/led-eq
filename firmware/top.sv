@@ -1,7 +1,7 @@
 `include "ResetGenerator.sv"
 `include "LEDMatrix.sv"
-`include "PixelBus.sv"
-`include "MockCanvas.sv"
+// `include "PixelBus.sv"
+// `include "MockCanvas.sv"
 
 module top #(
     parameter RESET_AFTER = 'hFFFF
@@ -13,15 +13,14 @@ module top #(
 
     ResetGenerator #(.AFTER(RESET_AFTER)) reset_gen (.clk(clk), .reset(reset));
 
-    PixelBus #(
-        .WIDTH(32), 
-        .HEIGHT(16),
-        .SCAN_RATE(8),
-        // it's actually 1 but we'll accept higher bit depths and always return 1
-        .BIT_DEPTH(8)
-    ) bus (.clk(clk));
-
-    MockCanvas cv (.reset(reset), .bus(bus.Canvas));
+    // PixelBus #(
+    //     .WIDTH(32), 
+    //     .HEIGHT(16),
+    //     .SCAN_RATE(8),
+    //     // it's actually 1 but we'll accept higher bit depths and always return 1
+    //     .BIT_DEPTH(8)
+    // ) bus (.clk(clk));
+    // MockCanvas cv (.reset(reset), .bus(bus));
 
     LEDMatrix_32x16_1to8 matrix (
         .clk(clk),

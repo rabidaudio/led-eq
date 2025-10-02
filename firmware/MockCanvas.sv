@@ -20,7 +20,7 @@ module MockCanvas (
         // it's actually 1 but we'll accept higher bit depths and always return 1
         .BIT_DEPTH(8)
     ) bus*/
-    PixelBus bus
+    PixelBus.Canvas bus
 );
     logic display [bus.HEIGHT] [bus.WIDTH];
     initial $readmemb("hello.b.mem", display);

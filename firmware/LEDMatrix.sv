@@ -2,6 +2,7 @@
 `define __LEDDMATRIX__
 
 `include "ClockDivider.sv"
+`include "PixelBus.sv"
 
 `define MAX(a, b) (((``a) > (``b)) ? (``a) : (``b))
 
@@ -14,7 +15,9 @@
  * are controlled by row_select, for i in [0,8).
  * https://news.sparkfun.com/2650
  */
-module LEDMatrix_32x16_1to8 (
+module LEDMatrix_32x16_1to8 #(
+    parameter BIT_DEPTH = 8
+) (
         input clk,
         input reset,
         // input [7:0] brightness,
@@ -25,11 +28,13 @@ module LEDMatrix_32x16_1to8 (
         .HEIGHT(16),
         .SCAN_RATE(8),
         .COLOR_WIDTH(2),
+        .BIT_DEPTH(BIT_DEPTH),
         .DWELL_CYCLES(16),
         .CLOCK_DIVIDER(6)
     ) matrix (
         .clk(clk),
         .reset(reset),
+
         // .brightness(brightness),
 
         .red({ hub_75[0], hub_75[4] }),
@@ -53,10 +58,14 @@ endmodule
  * update multiple scan lines in parallel using a shift register.
  */
 module LEDMatrix #(
-    parameter WIDTH = 32,
-    parameter HEIGHT = 32,
+    parameter WIDTH = 32, // in pixels
+    parameter HEIGHT = 32, // in pixels
+    // the ratio of pixels on at a given time. Alternatively,
+    // how many shifts does it take to cycle through a whole frame
     parameter SCAN_RATE = 16,
+    // how many rows are shifted out in parallel
     parameter COLOR_WIDTH = (HEIGHT/SCAN_RATE),
+    // bit depth of our input colors, ie. how many bitplanes
     parameter BIT_DEPTH = 6,
     // The amount of time for the LEDs be on for the LSB bitplane.
     // This parameter controls the max perceived brightness, the max framerate,
@@ -85,12 +94,6 @@ module LEDMatrix #(
     // how many (LED clock) cycles it takes to latch out the shifted data.
     // LEDs must be off (oe_n high) while latch is taking place.
     localparam LATCH_CYCLES = 2;
-
-    // STOPSHIP
-    // logic display [HEIGHT] [WIDTH];
-    // initial begin
-    //     $readmemb("hello.b.mem", display);
-    // end
 
     // inputs: fixed dwell time
     // where "dwell" = period of time on (*2^bit depth)
@@ -138,39 +141,41 @@ module LEDMatrix #(
 
             case (state)
                 SHIFT: begin
-                    // shift out pixels
-                    // red[1] <= display[(row_select+1)][pixel_index];
-                    // red[0] <= display[(row_select+1)+SCAN_RATE][pixel_index];
-
-                    red[0] <= pixel_index[0];
-                    red[1] <= pixel_index[1];
-
-                    pixel_index <= pixel_index + 1;
                     enable <= 0;
                 end
+                DWELL: enable <= 1;
                 LATCH: begin
                     enable <= 0;
                     lat <= ~lat;
                     if (counter == 1) row_select <= row_select + 1; // show the row we just shifted out
                 end
-                DWELL: enable <= 1;
             endcase
+
+            // if state is SHIFT or is about to be SHIFT (end of LATCH)
+            if (state == SHIFT || (state == LATCH && counter == 0)) begin
+                // shift out pixels
+                // red[0] <= pixel_index[0];
+                // red[1] <= pixel_index[1];
+                red[0] = (pixel_index == 0);
+                red[1] = (pixel_index > 0);
+                pixel_index <= pixel_index + 1;
+            end
 
             // state transition
             counter <= counter - 1;
             if (counter == 0) begin
                 if (state == SHIFT) begin
                     state <= DWELL;
-                    state <= DWELL;
                     counter <= DWELL_CYCLES-1; // TODO: account for current bitplane
+
+                    // bus.req_read <= 0; // stop reading
+                    pixel_index <= 0; // reset pixel index
                 end else if (state == DWELL) begin
                     state <= LATCH;
                     counter <= LATCH_CYCLES-1;
                 end else if (state == LATCH) begin
                     state <= SHIFT;
                     counter <= SHIFT_CYCLES-1;
-                    // prepare to shift
-                    pixel_index <= 0;
                 end
             end
         end

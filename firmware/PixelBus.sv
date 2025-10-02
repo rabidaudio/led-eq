@@ -27,13 +27,13 @@ interface PixelBus #(
     logic [COLOR_WIDTH-1:0] blue;
 
     modport Canvas (
-        input req_read, bitplane, row_addr, pixel_addr,
-        output read_ready, red, green, blue
+        input req_read, input bitplane, input row_addr, input pixel_addr,
+        output read_ready, output red, output green, output blue
     );
 
     modport Matrix (
-        output req_read, bitplane, row_addr, pixel_addr,
-        input read_ready, red, green, blue
+        output req_read, output bitplane, output row_addr, output pixel_addr,
+        input read_ready, input red, input green, input blue
     );
 endinterface
 

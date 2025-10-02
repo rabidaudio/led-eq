@@ -37,9 +37,9 @@ module LEDMatrix_32x16_1to8 #(
 
         // .brightness(brightness),
 
-        .red({ hub_75[0], hub_75[4] }),
-        .green({ hub_75[1], hub_75[5] }),
-        .blue({ hub_75[2], hub_75[6] }),
+        .red({ hub_75[4], hub_75[0] }),
+        .green({ hub_75[5], hub_75[1] }),
+        .blue({ hub_75[6], hub_75[2] }),
         .row_select(hub_75[10:8]),
         .out_clk(hub_75[12]),
         .lat(hub_75[13]),
@@ -66,7 +66,7 @@ module LEDMatrix #(
     // how many rows are shifted out in parallel
     parameter COLOR_WIDTH = (HEIGHT/SCAN_RATE),
     // bit depth of our input colors, ie. how many bitplanes
-    parameter BIT_DEPTH = 6,
+    parameter BIT_DEPTH = 16,
     // The amount of time for the LEDs be on for the LSB bitplane.
     // This parameter controls the max perceived brightness, the max framerate,
     // and the resolution of `brightness` in some complex ways. See:
@@ -160,15 +160,8 @@ module LEDMatrix #(
             // if state is SHIFT or is about to be SHIFT (end of LATCH)
             if (state == SHIFT || (state == LATCH && counter == 0)) begin
                 // shift out pixels
-                // red[0] <= (pixel_index == 0);
-                // red[1] <= (pixel_index > 0);
-                // blue[0] <= (bitplane == 0);
-                // blue[1] <= (bitplane == 7);
-
                 red[0] <= (row_index == 0 && pixel_index == 0);
-                red[1] <= (row_index == 0 && pixel_index == 0);
-                blue[0] <= (row_index != 0 || pixel_index != 0);
-                blue[1] <= (row_index != 0 || pixel_index != 0);
+                blue[1] <= (bitplane <= pixel_index);
 
                 pixel_index <= pixel_index + 1;
             end
@@ -178,8 +171,7 @@ module LEDMatrix #(
             if (counter == 0) begin
                 if (state == SHIFT) begin
                     state <= DWELL;
-                    // counter <= DWELL_CYCLES-1;
-                    counter <= (DWELL_CYCLES*(bitplane+1))-1;                  
+                    counter <= (DWELL_CYCLES * (1 << bitplane))-1;
 
                     // primitively prepare to start shifting next
                     if (row_index == SCAN_RATE-1) begin
@@ -190,7 +182,7 @@ module LEDMatrix #(
                             // end of frame. TODO: signal frame complete?
                             bitplane <= 0;
                         end else bitplane <= bitplane + 1;
-                    end else row_index <= row_index + 1; // increment row  
+                    end else row_index <= row_index + 1; // increment row
 
                     pixel_index <= 0; // reset pixel index
                     

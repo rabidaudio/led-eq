@@ -20,7 +20,19 @@ module LEDMatrix_32x16_1to8 #(
 ) (
         input clk,
         input reset,
+
+        // PixelBus interface
+        // output logic req_read,
+        // output logic [$clog2(BIT_DEPTH-1)-1:0] bitplane,
+        // output logic [2:0] row_addr,
+        // output logic [4:0] pixel_addr,
+        // input read_ready,
+        // input [1:0] red,
+        // input [1:0] green,
+        // input [1:0] blue,
+
         // input [7:0] brightness,
+        
         output logic [15:0] hub_75
     );
     LEDMatrix #(
@@ -34,6 +46,16 @@ module LEDMatrix_32x16_1to8 #(
     ) matrix (
         .clk(clk),
         .reset(reset),
+
+        // pixel bus
+        // .req_read(req_read),
+        // .bitplane(bitplane),
+        // .row_addr(row_addr),
+        // .pixel_addr(pixel_addr),
+        // .read_ready(read_ready),
+        // .red(red),
+        // .green(green),
+        // .blue(blue),
 
         // .brightness(brightness),
 
@@ -77,6 +99,17 @@ module LEDMatrix #(
 ) (
     input clk,
     input reset,
+
+    // PixelBus interface
+    // output logic req_read,
+    // output logic [$clog2(BIT_DEPTH-1)-1:0] bitplane,
+    // output logic [$clog2(SCAN_RATE-1)-1:0] row_addr,
+    // output logic [$clog2(WIDTH-1)-1:0] pixel_addr,
+    // input read_ready,
+    // input [COLOR_WIDTH-1:0] red,
+    // input [COLOR_WIDTH-1:0] green,
+    // input [COLOR_WIDTH-1:0] blue,
+
     // number of cycles of DWELL_CYCLES the LEDs will actually be on, from 0 (0%)
     // to DWELL_CYCLES (100%), inclusive
     input [$clog2(DWELL_CYCLES)-1:0] brightness,
@@ -89,35 +122,37 @@ module LEDMatrix #(
     output logic lat,
     output logic oe_n
 );
-    // how many (LED clock) cycles it takes to shift out one row
-    localparam SHIFT_CYCLES = (WIDTH*HEIGHT)/SCAN_RATE/COLOR_WIDTH;
     // how many (LED clock) cycles it takes to latch out the shifted data.
     // LEDs must be off (oe_n high) while latch is taking place.
     localparam LATCH_CYCLES = 2;
+    localparam PIXELS_PER_ROW = WIDTH;
 
-    // inputs: fixed dwell time
-    // where "dwell" = period of time on (*2^bit depth)
-    // period max(shift+latch time, dwell + latch time)
-    // first iteration:
-    //      shift, latch, dwell
-    // second iteration:
-    //      dwell, latch (with shift just in time)
-    enum logic [2:0] {
-        SHIFT = 1, // LEDs off, shift out the next row of data
-        DWELL = 2, // LEDs on, wait for DWELL_CYCLES*2^n where n is the current bit plane
-        LATCH = 3  // LEDs off, latch the row and increment the row counter
-    } state;
-    localparam MAX_DWELL_CYCLES = (1 << (BIT_DEPTH-1)) * DWELL_CYCLES;
-    localparam COUNTER_SIZE = `MAX(SHIFT_CYCLES, `MAX(LATCH_CYCLES, MAX_DWELL_CYCLES));
-    // core counter until the next state transition
-    logic [$clog2(COUNTER_SIZE)-1:0] counter;
+    // Shift state
 
+    // While a shift is happening, we request data from the PixelBus (SHIFTING).
+    // When `read_ready`, the data is shifted out and the next pixel is requested.
+    // when all the pixels are shifted out, `SHIFT_COMPLETE` goes high.
+    enum logic { SHIFTING, SHIFT_COMPLETE } shift_state;
+    
     // which pixel are we currently shifting out
-    logic [$clog2(SHIFT_CYCLES-1)-1:0] pixel_index;
+    logic [$clog2(PIXELS_PER_ROW-1)-1:0] pixel_index;
     // which row(s) are we currently shifting out
     logic [$clog2(SCAN_RATE-1)-1:0] row_index;
-
+    // which bitplane are we currently on
     logic [$clog2(BIT_DEPTH-1)-1:0] bitplane;
+
+    // LEDs go on for the current `row_select` for the length of
+    // `DWELL_TIME*2^bitplane`. When this time is finished, LEDs
+    // are turned off and, if not yet complete, we wait until
+    // `SHIFT_COMPLETE`. Then the data is latched. After the latch
+    // completes, the DWELL period for the just shifted data begins
+    // and we start shifting out the new data.
+    enum logic { DWELL, LATCH } dwell_state;
+
+    localparam MAX_DWELL_CYCLES = (1 << (BIT_DEPTH-1)) * DWELL_CYCLES;
+    localparam COUNTER_SIZE = MAX_DWELL_CYCLES + LATCH_CYCLES;
+    // how much dwell time is left
+    logic [$clog2(COUNTER_SIZE)-1:0] dwell_counter;
 
     // whether  the LEDs be on
     logic enable;
@@ -136,44 +171,25 @@ module LEDMatrix #(
     );
 
     // out_clk should only tick while shifting
-    always_comb out_clk = (low_clk & state == SHIFT);
+    always_comb out_clk = (low_clk & shift_state == SHIFTING);
     
     always_comb oe_n = !(enable /*& b_pwm*/); // TODO: brightness
  
     always_ff @(posedge clk) begin
         if (about_to_fall) begin // trigger logic on falling edge of led_clk
 
-            case (state)
-                SHIFT: begin
-                    enable <= 0;
-                end
-                DWELL: enable <= 1;
-                LATCH: begin
-                    enable <= 0;
-                    lat <= ~lat;
-                    if (counter == 1) begin
-                        row_select <= row_select == SCAN_RATE-1 ? 0 : row_select + 1;
-                    end
-                end
-            endcase
-
-            // if state is SHIFT or is about to be SHIFT (end of LATCH)
-            if (state == SHIFT || (state == LATCH && counter == 0)) begin
+            // shift
+            if (shift_state == SHIFTING || (dwell_state == LATCH && dwell_counter == 0)) begin
                 // shift out pixels
+                // red[0] <= pixel_index[0];
                 red[0] <= (row_index == 0 && pixel_index == 0);
                 blue[1] <= (bitplane <= pixel_index);
-
-                pixel_index <= pixel_index + 1;
-            end
-
-            // state transition
-            counter <= counter - 1;
-            if (counter == 0) begin
-                if (state == SHIFT) begin
-                    state <= DWELL;
-                    counter <= (DWELL_CYCLES * (1 << bitplane))-1;
-
-                    // primitively prepare to start shifting next
+                
+                if (pixel_index == PIXELS_PER_ROW-1) begin
+                    // row complete
+                    pixel_index <= 0;
+                    shift_state <= SHIFT_COMPLETE;
+                    
                     if (row_index == SCAN_RATE-1) begin
                         row_index <= 0;
 
@@ -182,32 +198,57 @@ module LEDMatrix #(
                             // end of frame. TODO: signal frame complete?
                             bitplane <= 0;
                         end else bitplane <= bitplane + 1;
-                    end else row_index <= row_index + 1; // increment row
 
-                    pixel_index <= 0; // reset pixel index
-                    
-                end else if (state == DWELL) begin
-                    state <= LATCH;
-                    counter <= LATCH_CYCLES-1;
-                end else if (state == LATCH) begin
-                    state <= SHIFT;
-                    counter <= SHIFT_CYCLES-1;
-                end
+                    end else row_index <= row_index + 1;
+
+                end else pixel_index <= pixel_index + 1;
             end
+
+            case (dwell_state)
+                DWELL: begin
+                    lat <= 0;
+                    if (dwell_counter == 0) begin
+                        enable <= 0;
+                        if (shift_state == SHIFT_COMPLETE) begin
+                            dwell_state <= LATCH;
+                            dwell_counter <= LATCH_CYCLES-1;
+                        end // else nothing to do, keep waiting
+                    end else begin
+                        enable <= 1;
+                        dwell_counter <= dwell_counter - 1;
+                    end
+                end
+                LATCH: begin
+                    enable <= 0;
+                    if (dwell_counter == 0) begin
+                        lat <= 0;
+                        row_select <= row_select == SCAN_RATE-1 ? 0 : row_select + 1;
+
+                        // restart
+                        dwell_state <= DWELL;
+                        dwell_counter <= (DWELL_CYCLES-1) << bitplane;
+                        shift_state <= SHIFTING;
+                    end else begin
+                        dwell_counter <= dwell_counter - 1;
+                        lat <= 1;
+                    end
+                end
+            endcase
         end
 
         if (reset) begin
             red <= 0;
             green <= 0;
             blue <= 0;
-            row_select <= SCAN_RATE-2;
+            row_select <= SCAN_RATE-1;
             lat <= 0;
 
             pixel_index <= 0;
             row_index <= 0;
-            state <= DWELL;
-            counter <= 0;
             bitplane <= 0;
+            shift_state <= SHIFT_COMPLETE;
+            dwell_state <= DWELL;
+            dwell_counter <= 0;
             enable <= 0;
         end
     end

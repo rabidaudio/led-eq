@@ -114,6 +114,8 @@ module LEDMatrix #(
 
     // which pixel are we currently shifting out
     logic [$clog2(SHIFT_CYCLES-1)-1:0] pixel_index;
+    // which row(s) are we currently shifting out
+    logic [$clog2(SCAN_RATE-1)-1:0] row_index;
 
     logic [$clog2(BIT_DEPTH-1)-1:0] bitplane;
 
@@ -149,17 +151,8 @@ module LEDMatrix #(
                 LATCH: begin
                     enable <= 0;
                     lat <= ~lat;
-                    if (counter == 1) row_select <= row_select + 1; // show the row we just shifted out
-                    
-
-                    if (counter == 0) begin
-                       if (row_select == SCAN_RATE-1) begin
-                            // bitplane complete, start shifting out next bitplane
-                            if (bitplane == BIT_DEPTH-1) begin
-                                // end of frame. TODO: signal frame complete?
-                                bitplane <= 0;
-                            end else bitplane <= bitplane + 1;
-                        end
+                    if (counter == 1) begin
+                        row_select <= row_select == SCAN_RATE-1 ? 0 : row_select + 1;
                     end
                 end
             endcase
@@ -169,10 +162,13 @@ module LEDMatrix #(
                 // shift out pixels
                 // red[0] <= (pixel_index == 0);
                 // red[1] <= (pixel_index > 0);
-                blue[0] <= (bitplane == 0);
-                blue[1] <= (bitplane == 7);
-                // blue[1] <= 0;
-                // blue[0] <= (row_select == 0);
+                // blue[0] <= (bitplane == 0);
+                // blue[1] <= (bitplane == 7);
+
+                red[0] <= (row_index == 0 && pixel_index == 0);
+                red[1] <= (row_index == 0 && pixel_index == 0);
+                blue[0] <= (row_index != 0 || pixel_index != 0);
+                blue[1] <= (row_index != 0 || pixel_index != 0);
 
                 pixel_index <= pixel_index + 1;
             end
@@ -183,9 +179,21 @@ module LEDMatrix #(
                 if (state == SHIFT) begin
                     state <= DWELL;
                     // counter <= DWELL_CYCLES-1;
-                    counter <= (DWELL_CYCLES*(bitplane+1))-1;
+                    counter <= (DWELL_CYCLES*(bitplane+1))-1;                  
+
+                    // primitively prepare to start shifting next
+                    if (row_index == SCAN_RATE-1) begin
+                        row_index <= 0;
+
+                        // bitplane complete, start shifting out next bitplane
+                        if (bitplane == BIT_DEPTH-1) begin
+                            // end of frame. TODO: signal frame complete?
+                            bitplane <= 0;
+                        end else bitplane <= bitplane + 1;
+                    end else row_index <= row_index + 1; // increment row  
 
                     pixel_index <= 0; // reset pixel index
+                    
                 end else if (state == DWELL) begin
                     state <= LATCH;
                     counter <= LATCH_CYCLES-1;
@@ -200,9 +208,11 @@ module LEDMatrix #(
             red <= 0;
             green <= 0;
             blue <= 0;
-            pixel_index <= 0;
-            row_select <= '1;
+            row_select <= SCAN_RATE-2;
             lat <= 0;
+
+            pixel_index <= 0;
+            row_index <= 0;
             state <= DWELL;
             counter <= 0;
             bitplane <= 0;

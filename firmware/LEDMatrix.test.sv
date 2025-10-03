@@ -16,7 +16,8 @@ module LEDMatrix_Test (
         .HEIGHT(16),
         .SCAN_RATE(8),
         .COLOR_WIDTH(2),
-        .BIT_DEPTH(3)
+        .BIT_DEPTH(3),
+        .CLOCK_DIVIDER(4)
     ) dut (
         .clk(t_clk),
         .reset(t_reset),

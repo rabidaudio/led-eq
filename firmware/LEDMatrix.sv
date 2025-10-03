@@ -16,7 +16,8 @@
  * https://news.sparkfun.com/2650
  */
 module LEDMatrix_32x16_1to8 #(
-    parameter BIT_DEPTH = 8
+    parameter BIT_DEPTH = 8,
+    parameter CLOCK_DIVIDER = 6
 ) (
         input clk,
         input reset,
@@ -42,7 +43,7 @@ module LEDMatrix_32x16_1to8 #(
         .COLOR_WIDTH(2),
         .BIT_DEPTH(BIT_DEPTH),
         .DWELL_CYCLES(16),
-        .CLOCK_DIVIDER(6)
+        .CLOCK_DIVIDER(CLOCK_DIVIDER)
     ) matrix (
         .clk(clk),
         .reset(reset),
@@ -78,6 +79,8 @@ endmodule
 /**
  * LEDMatrix drives HUB75-style led matrix displays. These displays
  * update multiple scan lines in parallel using a shift register.
+ * Shift register docs: https://www.micros.com.pl/mediaserver/UIMBI5020gp_0001.pdf
+ * Data is shifted on clock rising edge. Data is latched when latch goes low.
  */
 module LEDMatrix #(
     parameter WIDTH = 32, // in pixels
@@ -135,7 +138,7 @@ module LEDMatrix #(
     // While a shift is happening, we request data from the PixelBus (SHIFTING).
     // When `read_ready`, the data is shifted out and the next pixel is requested.
     // when all the pixels are shifted out, `SHIFT_COMPLETE` goes high.
-    enum logic { SHIFTING, SHIFT_COMPLETE } shift_state;
+    enum logic { SHIFTING = 1, SHIFT_COMPLETE = 0 } shift_state; // STOPSHIP
     
     // which pixel are we currently shifting out
     logic [$clog2(PIXELS_PER_ROW-1)-1:0] pixel_index;

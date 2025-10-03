@@ -23,14 +23,13 @@ module LEDMatrix_32x16_1to8 #(
         input reset,
 
         // PixelBus interface
-        // output logic req_read,
-        // output logic [$clog2(BIT_DEPTH-1)-1:0] bitplane,
-        // output logic [2:0] row_addr,
-        // output logic [4:0] pixel_addr,
-        // input read_ready,
-        // input [1:0] red,
-        // input [1:0] green,
-        // input [1:0] blue,
+        output logic req_read,
+        output logic [$clog2(BIT_DEPTH-1)-1:0] bitplane_addr,
+        output logic [2:0] row_addr,
+        output logic [4:0] pixel_addr,
+        input [1:0] r_data,
+        input [1:0] g_data,
+        input [1:0] b_data,
 
         output logic frame_complete,
         input [4:0] brightness,
@@ -50,14 +49,13 @@ module LEDMatrix_32x16_1to8 #(
         .reset(reset),
 
         // pixel bus
-        // .req_read(req_read),
-        // .bitplane(bitplane),
-        // .row_addr(row_addr),
-        // .pixel_addr(pixel_addr),
-        // .read_ready(read_ready),
-        // .red(red),
-        // .green(green),
-        // .blue(blue),
+        .req_read(req_read),
+        .bitplane_addr(bitplane_addr),
+        .row_addr(row_addr),
+        .pixel_addr(pixel_addr),
+        .r_data(r_data),
+        .g_data(g_data),
+        .b_data(b_data),
 
         .brightness(brightness),
         .frame_complete(frame_complete),
@@ -106,18 +104,18 @@ module LEDMatrix #(
     input reset,
 
     // PixelBus interface
-    // output logic req_read,
-    // output logic [$clog2(BIT_DEPTH-1)-1:0] bitplane,
-    // output logic [$clog2(SCAN_RATE-1)-1:0] row_addr,
-    // output logic [$clog2(WIDTH-1)-1:0] pixel_addr,
-    // input read_ready,
-    // input [COLOR_WIDTH-1:0] red,
-    // input [COLOR_WIDTH-1:0] green,
-    // input [COLOR_WIDTH-1:0] blue,
+    output logic req_read,
+    output logic [$clog2(BIT_DEPTH-1)-1:0] bitplane_addr,
+    output logic [$clog2(SCAN_RATE-1)-1:0] row_addr,
+    output logic [$clog2(WIDTH-1)-1:0] pixel_addr,
+    input read_ready,
+    input [COLOR_WIDTH-1:0] r_data,
+    input [COLOR_WIDTH-1:0] g_data,
+    input [COLOR_WIDTH-1:0] b_data,
 
     // number of cycles of DWELL_CYCLES the LEDs will actually be on, from 0 (0%)
     // to DWELL_CYCLES (100%), inclusive
-    input [$clog2(DWELL_CYCLES)-1:0] brightness,
+    input [$clog2(DWELL_CYCLES+1)-1:0] brightness,
 
     // Raised for one system clock cycle when the last latch for a frame occurs
     output logic frame_complete,
@@ -184,6 +182,11 @@ module LEDMatrix #(
     logic [$clog2(COUNTER_SIZE)-1+BIT_DEPTH:0] on_time;
     always_comb on_time = (brightness << bitplane);
     always_comb oe_n = !(enable & (dwell_counter < on_time));
+
+
+    assign red = r_data;
+    assign green = g_data;
+    assign blue = b_data;
  
     always_ff @(posedge clk) begin
         frame_complete <= 0;
@@ -192,12 +195,11 @@ module LEDMatrix #(
 
             // shift out data
             if (shift_state == SHIFTING || dwell_state == LATCH) begin
-                // shift out pixels
-                red[0] <= (pixel_index == 0 && row_index == 0);
-                blue[1] <= (bitplane <= pixel_index);
-
-                pixel_index <= pixel_index + 1;
-                trigger_shift <= 1;
+                bitplane_addr <= bitplane;
+                // request the pixel after this one
+                pixel_addr <= pixel_index;
+                row_addr <= row_index;
+                req_read <= 1;
             end
 
             // shift
@@ -207,6 +209,7 @@ module LEDMatrix #(
                     pixel_index <= 0;
                     shift_state <= SHIFT_COMPLETE;
                     trigger_shift <= 1;
+                    req_read <= 0;
                     
                     if (row_index == SCAN_RATE-1) begin
                         row_index <= 0;
@@ -246,9 +249,6 @@ module LEDMatrix #(
         end
 
         if (reset) begin
-            red <= 0;
-            green <= 0;
-            blue <= 0;
             row_select <= SCAN_RATE-2;
             lat <= 0;
 

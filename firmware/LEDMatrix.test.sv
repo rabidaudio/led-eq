@@ -4,6 +4,8 @@ module LEDMatrix_Test (
     input t_clk,
     input t_reset
 );
+    logic [1:0] t_row_addr;
+    logic [3:0] t_pixel_addr;
 
     logic [5:0] t_parallel;
     logic [1:0] t_row_select;
@@ -17,10 +19,17 @@ module LEDMatrix_Test (
         .SCAN_RATE(2),
         .COLOR_WIDTH(2),
         .BIT_DEPTH(3),
+        .DWELL_CYCLES(16),
         .CLOCK_DIVIDER(4)
     ) dut (
         .clk(t_clk),
         .reset(t_reset),
+
+        .row_addr(t_row_addr),
+        .pixel_addr(t_pixel_addr),
+        .r_data(t_pixel_addr[1:0]),
+        .g_data(t_pixel_addr[2:1]),
+        .b_data('1),
 
         .brightness(5'h08), // half brightness
         // .brightness(16),

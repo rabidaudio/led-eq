@@ -3,10 +3,9 @@
 
 /**
  * `PixelBus` is an interface that `LEDMatrix` uses to access pixel data to display.
- * The matrix will request the `bitplane`, `row_addr`, and `pixel_addr` desired and
+ * The matrix will request the `bitplane_addr`, `row_addr`, and `pixel_addr` desired and
  * pull `req_read` high.
- * When the data is available, it will be placed on `red`, `green`, and `blue`, and
- * `read_ready` will go high.
+ * On the next clock cycle, it will be placed on `r_data`, `g_data`, and `b_data`.
  */
 interface PixelBus #(
     parameter WIDTH = 64, // in pixels
@@ -17,23 +16,22 @@ interface PixelBus #(
     localparam COLOR_WIDTH = HEIGHT/SCAN_RATE;
 
     logic req_read;
-    logic [$clog2(BIT_DEPTH-1)-1:0] bitplane;
+    logic [$clog2(BIT_DEPTH-1)-1:0] bitplane_addr;
     logic [$clog2(SCAN_RATE-1)-1:0] row_addr;
     logic [$clog2(WIDTH-1)-1:0] pixel_addr;
 
-    logic read_ready;
-    logic [COLOR_WIDTH-1:0] red;
-    logic [COLOR_WIDTH-1:0] green;
-    logic [COLOR_WIDTH-1:0] blue;
+    logic [COLOR_WIDTH-1:0] r_data;
+    logic [COLOR_WIDTH-1:0] g_data;
+    logic [COLOR_WIDTH-1:0] b_data;
 
     modport Canvas (
-        input req_read, input bitplane, input row_addr, input pixel_addr,
-        output read_ready, output red, output green, output blue
+        input req_read, input bitplane_addr, input row_addr, input pixel_addr,
+        output read_ready, output r_data, output g_data, output b_data
     );
 
     modport Matrix (
-        output req_read, output bitplane, output row_addr, output pixel_addr,
-        input read_ready, input red, input green, input blue
+        output req_read, output bitplane_addr, output row_addr, output pixel_addr,
+        input read_ready, input r_data, input g_data, input b_data
     );
 endinterface
 

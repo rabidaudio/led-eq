@@ -1,11 +1,11 @@
 `include "ResetGenerator.sv"
 `include "LEDMatrix.sv"
 `include "BrightnessRamp.sv"
-// `include "PixelBus.sv"
-// `include "MockCanvas.sv"
+`include "MockCanvas.sv"
 
 module top #(
-    parameter RESET_AFTER = 'hFFFF
+    parameter RESET_AFTER = 'hFFFF,
+    parameter BIT_DEPTH = 8
 ) (
     input clk,
     output logic [15:0] hub_75_o
@@ -14,25 +14,27 @@ module top #(
 
     ResetGenerator #(.AFTER(RESET_AFTER)) reset_gen (.clk(clk), .reset(reset));
 
-    // PixelBus #(
-    //     .WIDTH(32), 
-    //     .HEIGHT(16),
-    //     .SCAN_RATE(8),
-    //     // it's actually 1 but we'll accept higher bit depths and always return 1
-    //     .BIT_DEPTH(8)
-    // ) bus (.clk(clk));
-
-    // PixelBus interface
-    // logic req_read;
-    // logic [$clog2(BIT_DEPTH-1)-1:0] bitplane;
-    // logic [2:0] row_addr;
-    // logic [4:0] pixel_addr;
-    // logic read_ready;
-    // logic [1:0] red;
-    // logic [1:0] green;
-    // logic [1:0] blue;
+    logic req_read;
+    logic [$clog2(BIT_DEPTH-1)-1:0] bitplane_addr;
+    logic [2:0] row_addr;
+    logic [4:0] pixel_addr;
+    logic read_ready;
+    logic [1:0] r_data;
+    logic [1:0] g_data;
+    logic [1:0] b_data;
     
-    // MockCanvas cv (.reset(reset), .bus(bus));
+    MockCanvas cv (
+        .clk(clk),
+        .reset(reset),
+        
+        .req_read(req_read),
+        // .bitplane_addr(bitplane_addr),
+        .row_addr(row_addr),
+        .pixel_addr(pixel_addr),
+        .r_data(r_data),
+        .g_data(g_data),
+        .b_data(b_data)
+    );
 
     logic frame_end;
     logic [4:0] brightness;
@@ -49,14 +51,13 @@ module top #(
         .reset(reset),
 
         // pixel bus
-        // .req_read(req_read),
-        // .bitplane(bitplane),
-        // .row_addr(row_addr),
-        // .pixel_addr(pixel_addr),
-        // .read_ready(read_ready),
-        // .red(red),
-        // .green(green),
-        // .blue(blue),
+        .req_read(req_read),
+        .bitplane_addr(bitplane_addr),
+        .row_addr(row_addr),
+        .pixel_addr(pixel_addr),
+        .r_data(r_data),
+        .g_data(g_data),
+        .b_data(b_data),
 
         .frame_complete(frame_end),
         .brightness(brightness),

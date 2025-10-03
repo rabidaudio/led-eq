@@ -32,7 +32,8 @@ module LEDMatrix_32x16_1to8 #(
         // input [1:0] green,
         // input [1:0] blue,
 
-        // input [7:0] brightness,
+        output logic frame_complete,
+        input [4:0] brightness,
         
         output logic [15:0] hub_75
     );
@@ -58,7 +59,8 @@ module LEDMatrix_32x16_1to8 #(
         // .green(green),
         // .blue(blue),
 
-        // .brightness(brightness),
+        .brightness(brightness),
+        .frame_complete(frame_complete),
 
         .red({ hub_75[4], hub_75[0] }),
         .green({ hub_75[5], hub_75[1] }),
@@ -179,7 +181,9 @@ module LEDMatrix #(
     logic trigger_shift;
     always_comb out_clk = (low_clk & trigger_shift);
     
-    always_comb oe_n = !(enable /*& b_pwm*/); // TODO: brightness
+    logic [$clog2(COUNTER_SIZE)-1+BIT_DEPTH:0] on_time;
+    always_comb on_time = (brightness << bitplane);
+    always_comb oe_n = !(enable & (dwell_counter < on_time));
  
     always_ff @(posedge clk) begin
         frame_complete <= 0;

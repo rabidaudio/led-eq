@@ -33,7 +33,23 @@ module top #(
     
     // MockCanvas cv (.reset(reset), .bus(bus));
 
-    LEDMatrix_32x16_1to8 #(.BIT_DEPTH(3)) matrix (
+    logic frame_end;
+    logic [4:0] frame_counter;
+    logic [4:0] brightness;
+
+    always_ff @(posedge clk) begin
+        if (frame_end) begin
+            frame_counter <= frame_counter + 1;
+            if (frame_counter == 0) brightness <= brightness == 16 ? 0 : brightness + 1;
+        end
+
+        if (reset) begin
+            brightness <= 0;
+            frame_counter <= 0;
+        end
+    end
+
+    LEDMatrix_32x16_1to8 #(.BIT_DEPTH(8)) matrix (
         .clk(clk),
         .reset(reset),
 
@@ -47,7 +63,9 @@ module top #(
         // .green(green),
         // .blue(blue),
 
-        // .brightness(4'h8), // half brightness
+        .frame_complete(frame_end),
+        .brightness(brightness),
+        // .brightness(4'h07),
 
         .hub_75(hub_75_o)
     );

@@ -21,6 +21,11 @@ module LEDMatrix_Test (
     ) dut (
         .clk(t_clk),
         .reset(t_reset),
+
+        .brightness(5'h08), // half brightness
+        // .brightness(16),
+        // .brightness(0),
+
         .red(t_parallel[5:4]),
         .green(t_parallel[3:2]),
         .blue(t_parallel[1:0]),

@@ -88,7 +88,7 @@ module LEDMatrix #(
     // how many rows are shifted out in parallel
     parameter COLOR_WIDTH = (HEIGHT/SCAN_RATE),
     // bit depth of our input colors, ie. how many bitplanes
-    parameter BIT_DEPTH = 16,
+    parameter BIT_DEPTH = 3,
     // The amount of time for the LEDs be on for the LSB bitplane.
     // This parameter controls the max perceived brightness, the max framerate,
     // and the resolution of `brightness` in some complex ways. See:
@@ -113,6 +113,9 @@ module LEDMatrix #(
     // number of cycles of DWELL_CYCLES the LEDs will actually be on, from 0 (0%)
     // to DWELL_CYCLES (100%), inclusive
     input [$clog2(DWELL_CYCLES)-1:0] brightness,
+
+    // Raised for one system clock cycle when the last latch for a frame occurs
+    output logic frame_complete,
 
     output logic [COLOR_WIDTH-1:0] red,
     output logic [COLOR_WIDTH-1:0] green,
@@ -139,7 +142,7 @@ module LEDMatrix #(
     // which row(s) are we currently shifting out
     logic [$clog2(SCAN_RATE-1)-1:0] row_index;
     // which bitplane are we currently on
-    logic [$clog2(BIT_DEPTH-1)-1:0] bitplane;
+    logic [$clog2(BIT_DEPTH)-1:0] bitplane;
 
     // LEDs go on for the current `row_select` for the length of
     // `DWELL_TIME*2^bitplane`. When this time is finished, LEDs
@@ -169,21 +172,26 @@ module LEDMatrix #(
         .slow_clk(low_clk),
         .next_fall(about_to_fall)
     );
-
     // out_clk should only tick while shifting
     always_comb out_clk = (low_clk & shift_state == SHIFTING);
     
     always_comb oe_n = !(enable /*& b_pwm*/); // TODO: brightness
  
     always_ff @(posedge clk) begin
+        frame_complete <= 0;
+
         if (about_to_fall) begin // trigger logic on falling edge of led_clk
 
             // shift
-            if (shift_state == SHIFTING || (dwell_state == LATCH && dwell_counter == 0)) begin
+            if (shift_state == SHIFTING /*|| (dwell_state == LATCH && dwell_counter == 0)*/) begin
                 // shift out pixels
-                // red[0] <= pixel_index[0];
+                // red[0] <= pixel_index == 0;
+                // red[1] <= pixel_index != 0;
+                // blue[0] <= row_index == 0;
+                // blue[1] <= row_index != 0;
                 red[0] <= (row_index == 0 && pixel_index == 0);
-                blue[1] <= (bitplane <= pixel_index);
+                blue[1] <= (row_index == 0);
+                // blue[1] <= (bitplane <= pixel_index);
                 
                 if (pixel_index == PIXELS_PER_ROW-1) begin
                     // row complete
@@ -228,6 +236,8 @@ module LEDMatrix #(
                         dwell_state <= DWELL;
                         dwell_counter <= (DWELL_CYCLES-1) << bitplane;
                         shift_state <= SHIFTING;
+
+                        if (row_index == 0 && bitplane == 0) frame_complete <= 1;
                     end else begin
                         dwell_counter <= dwell_counter - 1;
                         lat <= 1;
@@ -240,7 +250,7 @@ module LEDMatrix #(
             red <= 0;
             green <= 0;
             blue <= 0;
-            row_select <= SCAN_RATE-1;
+            row_select <= SCAN_RATE-2;
             lat <= 0;
 
             pixel_index <= 0;
@@ -250,6 +260,7 @@ module LEDMatrix #(
             dwell_state <= DWELL;
             dwell_counter <= 0;
             enable <= 0;
+            frame_complete <= 0;
         end
     end
 

@@ -1,5 +1,6 @@
 `include "ResetGenerator.sv"
 `include "LEDMatrix.sv"
+`include "BrightnessRamp.sv"
 // `include "PixelBus.sv"
 // `include "MockCanvas.sv"
 
@@ -34,20 +35,14 @@ module top #(
     // MockCanvas cv (.reset(reset), .bus(bus));
 
     logic frame_end;
-    logic [4:0] frame_counter;
     logic [4:0] brightness;
 
-    always_ff @(posedge clk) begin
-        if (frame_end) begin
-            frame_counter <= frame_counter + 1;
-            if (frame_counter == 0) brightness <= brightness == 16 ? 0 : brightness + 1;
-        end
-
-        if (reset) begin
-            brightness <= 0;
-            frame_counter <= 0;
-        end
-    end
+    BrightnessRamp ramp (
+        .clk(clk),
+        .reset(reset),
+        .inc(frame_end),
+        .brightness(brightness)
+    );
 
     LEDMatrix_32x16_1to8 #(.BIT_DEPTH(8)) matrix (
         .clk(clk),

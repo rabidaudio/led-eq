@@ -1,7 +1,7 @@
 `include "ResetGenerator.sv"
 `include "LEDMatrix.sv"
 `include "BrightnessRamp.sv"
-`include "MockCanvas.sv"
+`include "FlagCanvas.sv"
 
 module top #(
     parameter RESET_AFTER = 'hFFFF,
@@ -23,12 +23,12 @@ module top #(
     logic [1:0] g_data;
     logic [1:0] b_data;
     
-    MockCanvas cv (
+    FlagCanvas cv (
         .clk(clk),
         .reset(reset),
         
         .req_read(req_read),
-        // .bitplane_addr(bitplane_addr),
+        .bitplane_addr(bitplane_addr),
         .row_addr(row_addr),
         .pixel_addr(pixel_addr),
         .r_data(r_data),

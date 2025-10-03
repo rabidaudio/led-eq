@@ -1,5 +1,5 @@
-`ifndef __MOCKCANVAS__
-`define __MOCKCANVAS__
+`ifndef __HELLO_CANVAS__
+`define __HELLO_CANVAS__
 
 /**
  * This is a simple implementation of the `PixelBus` interface
@@ -7,7 +7,7 @@
  * It loads "hello.b.mem" (a 1-bit 16x32 image) into memory
  * and writes it to the red channel on request.
  */
-module MockCanvas #(
+module HelloCanvas #(
     parameter SCAN_RATE = 8
 ) (
     input clk,
@@ -45,4 +45,4 @@ module MockCanvas #(
     end
 endmodule
 
-`endif // __MOCKCANVAS__
+`endif // __HELLO_CANVAS__

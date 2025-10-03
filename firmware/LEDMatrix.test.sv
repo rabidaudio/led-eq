@@ -6,15 +6,15 @@ module LEDMatrix_Test (
 );
 
     logic [5:0] t_parallel;
-    logic [2:0] t_row_select;
+    logic [1:0] t_row_select;
     logic t_out_clk;
     logic t_lat;
     logic t_oe_n;
 
     LEDMatrix #(
-        .WIDTH(32),
-        .HEIGHT(16),
-        .SCAN_RATE(8),
+        .WIDTH(16),
+        .HEIGHT(8),
+        .SCAN_RATE(2),
         .COLOR_WIDTH(2),
         .BIT_DEPTH(3),
         .CLOCK_DIVIDER(4)

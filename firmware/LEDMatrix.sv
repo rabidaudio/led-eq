@@ -138,7 +138,7 @@ module LEDMatrix #(
     // While a shift is happening, we request data from the PixelBus (SHIFTING).
     // When `read_ready`, the data is shifted out and the next pixel is requested.
     // when all the pixels are shifted out, `SHIFT_COMPLETE` goes high.
-    enum logic { SHIFTING = 1, SHIFT_COMPLETE = 0 } shift_state; // STOPSHIP
+    enum logic { SHIFTING, SHIFT_COMPLETE } shift_state;
     
     // which pixel are we currently shifting out
     logic [$clog2(PIXELS_PER_ROW-1)-1:0] pixel_index;
@@ -176,7 +176,8 @@ module LEDMatrix #(
         .next_fall(about_to_fall)
     );
     // out_clk should only tick while shifting
-    always_comb out_clk = (low_clk & shift_state == SHIFTING);
+    logic trigger_shift;
+    always_comb out_clk = (low_clk & trigger_shift);
     
     always_comb oe_n = !(enable /*& b_pwm*/); // TODO: brightness
  
@@ -185,35 +186,30 @@ module LEDMatrix #(
 
         if (about_to_fall) begin // trigger logic on falling edge of led_clk
 
-            // shift
-            if (shift_state == SHIFTING /*|| (dwell_state == LATCH && dwell_counter == 0)*/) begin
+            // shift out data
+            if (shift_state == SHIFTING || dwell_state == LATCH) begin
                 // shift out pixels
-                // red[0] <= pixel_index == 0;
-                // red[1] <= pixel_index != 0;
-                // blue[0] <= row_index == 0;
-                // blue[1] <= row_index != 0;
-                red[0] <= (row_index == 0 && pixel_index == 0);
-                blue[1] <= (row_index == 0);
-                // blue[1] <= (bitplane <= pixel_index);
-                
+                red[0] <= (pixel_index == 0 && row_index == 0);
+                blue[1] <= (bitplane <= pixel_index);
+
+                pixel_index <= pixel_index + 1;
+                trigger_shift <= 1;
+            end
+
+            // shift
+            if (shift_state == SHIFTING) begin
                 if (pixel_index == PIXELS_PER_ROW-1) begin
                     // row complete
                     pixel_index <= 0;
                     shift_state <= SHIFT_COMPLETE;
+                    trigger_shift <= 1;
                     
                     if (row_index == SCAN_RATE-1) begin
                         row_index <= 0;
-
-                        // bitplane complete, start shifting out next bitplane
-                        if (bitplane == BIT_DEPTH-1) begin
-                            // end of frame. TODO: signal frame complete?
-                            bitplane <= 0;
-                        end else bitplane <= bitplane + 1;
-
+                        bitplane <= (bitplane == BIT_DEPTH-1) ? 0 : bitplane + 1;
                     end else row_index <= row_index + 1;
-
                 end else pixel_index <= pixel_index + 1;
-            end
+            end else trigger_shift <= 0;
 
             case (dwell_state)
                 DWELL: begin
@@ -223,6 +219,7 @@ module LEDMatrix #(
                         if (shift_state == SHIFT_COMPLETE) begin
                             dwell_state <= LATCH;
                             dwell_counter <= LATCH_CYCLES-1;
+                            lat <= 1;
                         end // else nothing to do, keep waiting
                     end else begin
                         enable <= 1;
@@ -231,20 +228,15 @@ module LEDMatrix #(
                 end
                 LATCH: begin
                     enable <= 0;
-                    if (dwell_counter == 0) begin
-                        lat <= 0;
-                        row_select <= row_select == SCAN_RATE-1 ? 0 : row_select + 1;
+                    lat <= 0;
+                    row_select <= row_select == SCAN_RATE-1 ? 0 : row_select + 1;
+                    // restart
+                    dwell_state <= DWELL;
+                    dwell_counter <= (DWELL_CYCLES-1) << bitplane;
+                    shift_state <= SHIFTING;
+                    trigger_shift <= 1;
 
-                        // restart
-                        dwell_state <= DWELL;
-                        dwell_counter <= (DWELL_CYCLES-1) << bitplane;
-                        shift_state <= SHIFTING;
-
-                        if (row_index == 0 && bitplane == 0) frame_complete <= 1;
-                    end else begin
-                        dwell_counter <= dwell_counter - 1;
-                        lat <= 1;
-                    end
+                    if (row_index == 0 && bitplane == 0) frame_complete <= 1;
                 end
             endcase
         end
@@ -264,6 +256,7 @@ module LEDMatrix #(
             dwell_counter <= 0;
             enable <= 0;
             frame_complete <= 0;
+            trigger_shift <= 0;
         end
     end
 

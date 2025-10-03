@@ -33,7 +33,7 @@ module top #(
     
     // MockCanvas cv (.reset(reset), .bus(bus));
 
-    LEDMatrix_32x16_1to8 #(.CLOCK_DIVIDER(6*60*4*10*10), .BIT_DEPTH(3)) matrix (
+    LEDMatrix_32x16_1to8 #(.BIT_DEPTH(3)) matrix (
         .clk(clk),
         .reset(reset),
 
@@ -48,7 +48,7 @@ module top #(
         // .blue(blue),
 
         // .brightness(4'h8), // half brightness
-        
+
         .hub_75(hub_75_o)
     );
 endmodule

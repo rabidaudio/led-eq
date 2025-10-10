@@ -18,7 +18,16 @@ OptionParser.new do |opts|
     opts.on("-c", "--country COUNTRY_NAME") do |c|
         options[:country] = c
     end
+    opts.on("-h", "--help", "Prints this help") do
+        puts opts
+        exit
+    end
 end.parse!
+
+if options[:country].nil?
+    puts "Country required"
+    exit
+end
 
 FLAG_URL = "https://r74n.com/pixelflags/"
 data = Nokogiri::HTML.parse(Net::HTTP.get(URI(FLAG_URL)))
@@ -31,10 +40,9 @@ img = ChunkyPNG::Image.from_io(StringIO.new(Net::HTTP.get(URI(flag_png))))
 # r,g,b column-wise, then row-wise
 (options[:y_offset]...(options[:y_offset]+options[:height])).each do |y|
     (options[:x_offset]...(options[:x_offset]+options[:width])).each do |x|
-        puts("// [#{x}, #{y}]")
         r = ChunkyPNG::Color.r(img[x, y])
         g = ChunkyPNG::Color.g(img[x,y])
         b = ChunkyPNG::Color.b(img[x, y])
-        puts("%02X %02X %02X" % [r, g, b])
+        puts("%02X%02X%02X // [%d, %d]" % [r, g, b, x, y])
     end
 end

@@ -60,8 +60,8 @@ module top #(
         .b_data(b_data),
 
         .frame_complete(frame_end),
-        .brightness(brightness),
-        // .brightness(4'h07),
+        // .brightness(brightness),
+        .brightness(4'h03),
 
         .hub_75(hub_75_o)
     );

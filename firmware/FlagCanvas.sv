@@ -21,15 +21,15 @@ module FlagCanvas #(
     localparam COLOR_WIDTH = HEIGHT/SCAN_RATE;
 
     // (* ram_style = "block" *)
-    logic [7:0] display [HEIGHT] [WIDTH] [3];
+    logic [23:0] display [HEIGHT] [WIDTH];
     initial $readmemh("build/flag.h.mem", display);
 
     always_ff @(posedge clk) begin
         if (req_read) begin
             for (int i = 0; i < COLOR_WIDTH; i++) begin
-                r_data[i] = display[row_addr + (i*SCAN_RATE)][pixel_addr][0][bitplane_addr];
-                g_data[i] = display[row_addr + (i*SCAN_RATE)][pixel_addr][1][bitplane_addr];
-                b_data[i] = display[row_addr + (i*SCAN_RATE)][pixel_addr][2][bitplane_addr];
+                r_data[i] = display[row_addr + (i*SCAN_RATE)][pixel_addr][bitplane_addr + 16];
+                g_data[i] = display[row_addr + (i*SCAN_RATE)][pixel_addr][bitplane_addr + 8];
+                b_data[i] = display[row_addr + (i*SCAN_RATE)][pixel_addr][bitplane_addr + 0];
             end
         end
 

@@ -1,1 +1,4 @@
 build/
+cmds.f
+sim.vvp
+results.xml

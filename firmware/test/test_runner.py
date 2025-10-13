@@ -1,24 +1,26 @@
 from pathlib import Path
+import importlib
+import sys
 
-from cocotb_tools.runner import get_runner
+from framework import test_runners
 
-def test_runner():
-    sim = "icarus"
 
-    proj_path = Path(__file__).resolve().parent.parent
+def import_from_path(module_name, file_path):
+    spec = importlib.util.spec_from_file_location(module_name, file_path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
 
-    sources = [proj_path / "HelloCanvas.sv"]
-
-    runner = get_runner(sim)
-    runner.build(
-        sources=sources,
-        hdl_toplevel="HelloCanvas",
-        timescale=("10ns", "100ps"),
-        build_dir=proj_path,
-    )
-
-    runner.test(hdl_toplevel="HelloCanvas", test_module="test_hello_canvas,", timescale=("10ns", "100ps"))
-
+def load_all_test_files():
+    test_dir = Path(__file__).resolve().parent
+    for test_module_path in test_dir.glob("test_*.py"):
+        if str(test_module_path) == __file__:
+            continue # ignore current file
+        module_name = test_module_path.name.removesuffix(".py")
+        import_from_path(module_name, test_module_path)
 
 if __name__ == "__main__":
-    test_runner()
+    load_all_test_files()
+    for runner in test_runners:
+        runner()

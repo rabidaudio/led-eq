@@ -1,11 +1,19 @@
+import os
 import cocotb
 from cocotb.triggers import RisingEdge, Timer
 from cocotb.types import Array
 import contextlib
 import logging
+import functools
+from pathlib import Path
+from cocotb_tools.runner import get_runner
 
+# A global list to put runners from all tests
+test_runners = []
+
+# A wrapper for cocotb's dut module that adds some helper functions
 class DutWrapper(cocotb.handle.HierarchyObject):
-    def __init__(self, dut, period = 10, clk_pin = "clk", reset_pin = "reset"):
+    def __init__(self, dut, period = 10, total_cycles = 250_000, clk_pin = "clk", reset_pin = "reset"):
         self.__class__ = type(dut.__class__.__name__,
                               (self.__class__, dut.__class__),
                               {})
@@ -14,6 +22,7 @@ class DutWrapper(cocotb.handle.HierarchyObject):
         self._clk_pin = clk_pin
         self._reset_pin = reset_pin
         self._period = period
+        self._total_cycles = total_cycles
         self._logger = logging.getLogger(dut.__class__.__name__)
         self._logger.setLevel(logging.INFO)
 
@@ -53,7 +62,7 @@ class DutWrapper(cocotb.handle.HierarchyObject):
         return res
 
     async def generate_clock(self):
-        for _ in range(4*16*16*256 + 1000):
+        for _ in range(self._total_cycles):
             self._pin_by_name(self._clk_pin).value = 0
             await Timer(self._period/2, unit="step")
             self._pin_by_name(self._clk_pin).value = 1
@@ -65,10 +74,53 @@ class DutWrapper(cocotb.handle.HierarchyObject):
         self._pin_by_name(self._reset_pin).value = 0
 
 @contextlib.contextmanager
-def test_module(dut, reset = True, clk_pin = "clk", reset_pin = "reset"):
-    wdut = DutWrapper(dut, clk_pin=clk_pin, reset_pin=reset_pin)
+def simulator_module(dut, reset = True, **kwargs):
+    wdut = DutWrapper(dut, **kwargs)
     cocotb.start_soon(wdut.generate_clock())
     if reset:
         cocotb.start_soon(wdut.generate_reset())
 
     yield wdut
+
+def simulator_test(
+        path: str,
+        module_name: str = None,
+        simulator: str = "icarus",
+        proj_path = None,
+        timescale = ("10ns", "100ps"),
+        **kwargs
+):
+    proj_path = Path(__file__).resolve().parent.parent if proj_path == None else proj_path
+    module_name = os.path.basename(path).removesuffix(".sv") if module_name == None else module_name
+    def _decorator(func):
+        test_name = func.__name__
+
+        @cocotb.test(name=test_name, **kwargs)
+        @functools.wraps(func)
+        async def _test_wrapper(*args, **w_kwargs):
+            with simulator_module(args[0], **kwargs) as wdut:
+                return await func(wdut, **w_kwargs)
+        _test_wrapper.__name__ = test_name
+
+        def _runner():
+            sources = [proj_path / path]
+
+            runner = get_runner(simulator)
+            runner.build(
+                sources=sources,
+                hdl_toplevel=module_name,
+                timescale=timescale,
+                build_dir=proj_path,
+                waves=True,
+            )
+            runner.test(
+                hdl_toplevel=module_name,
+                test_module=f"{test_name},",
+                timescale=timescale,
+                waves=True,
+            )
+
+        test_runners.append(_runner)
+
+        return _test_wrapper
+    return _decorator

@@ -119,12 +119,15 @@ def simulator_test(
         def _runner():
             sources = [proj_path / path]
 
+            build_dir = proj_path / "build"
+
             runner = get_runner(simulator)
             runner.build(
                 sources=sources,
                 hdl_toplevel=module_name,
                 timescale=timescale,
-                build_dir=proj_path,
+                build_dir=build_dir,
+                always=True,
                 waves=True,
             )
             runner.test(

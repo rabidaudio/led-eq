@@ -1,5 +1,3 @@
 build/
-cmds.f
-sim.vvp
-results.xml
 .venv/
+__pycache__/

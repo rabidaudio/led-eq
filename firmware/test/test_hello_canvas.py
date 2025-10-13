@@ -22,7 +22,7 @@ async def test_hello_canvas(dut):
             results[(row + 8, pixel)] = dut.r_data.value[1]
 
     expected = np.empty((16, 32))
-    with open("hello.b.mem", "r") as f:
+    with open("../hello.b.mem", "r") as f:
         for r, line in enumerate(f):
             for p, v in enumerate(line.split(" ")):
                 expected[(r, p)] = v

@@ -35,7 +35,7 @@
         {
             "label": "View simulation results",
             "type": "shell",
-            "command": "open -a Scansion build/results.vcd",
+            "command": "surfer build/results.vcd",
             "options": {
                 "cwd": "${workspaceFolder}/firmware"
             },

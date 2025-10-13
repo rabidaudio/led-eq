@@ -28,7 +28,10 @@ module HelloCanvas #(
     localparam COLOR_WIDTH = HEIGHT/SCAN_RATE;
 
     (* ram_style = "block" *) logic display [HEIGHT] [WIDTH];
-    initial $readmemb("hello.b.mem", display);
+    initial begin
+        $readmempath(".:..");
+        $readmemb("hello.b.mem", display);
+    end
 
     always_ff @(posedge clk) begin
         if (req_read) begin

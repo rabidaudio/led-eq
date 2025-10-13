@@ -10,6 +10,7 @@ package-mode = false
 python = "^3.13"
 
 [tool.poetry.group.dev.dependencies]
+pytest = "^8.4.2"
 cocotb = "^2.0.0"
 numpy = "^2.3.3"
 isort = "^7.0.0"

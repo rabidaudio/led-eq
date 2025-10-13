@@ -8,6 +8,9 @@ package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.13"
+parsel = "^1.10.0"
+requests = "^2.32.5"
+imageio = "^2.37.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.2"
@@ -24,9 +27,24 @@ poetry_command = ""
 
 [tool.poe.tasks]
 test = "python3 test/test_runner.py"
-isort = "isort test"
-black = "black test"
+
+isort = "isort scripts test"
+black = "black scripts test"
 fix = ["isort", "black"]
-_isort_check = "isort test --check --diff"
-_black_check = "black test --check --diff"
+
+_isort_check = "isort scripts test --check --diff"
+_black_check = "black scripts test --check --diff"
 lint = ["_isort_check", "_black_check"]
+
+yosis = "yosys -s synth.yosys"
+nextpnr = """
+    nextpnr-ice40 \
+        --up5k --package sg48 \
+        --randomize-seed \
+        --pcf pins.pcf --json build/proj.json \
+        --opt-timing --tmg-ripup \
+        --asc build/proj.asc"""
+icepack = "icepack build/proj.asc build/proj.bin"
+synth = ["yosis", "nextpnr", "icepack"]
+
+get_flag = "python3 scripts/get_flag.py -o build/flag.h.mem"

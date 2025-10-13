@@ -24,5 +24,5 @@ def load_all_test_files():
 
 if __name__ == "__main__":
     load_all_test_files()
-    for runner in test_runners:
+    for runner in test_runners.values():
         runner()

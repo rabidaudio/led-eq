@@ -1,7 +1,7 @@
 `ifndef __SpiSlaveSimplex__
 `define __SpiSlaveSimplex__
 
-typedef enum { MSB, LSB } bit_order_e;
+typedef enum { MSB = 0, LSB = 1 } bit_order_e;
 typedef enum { ACTIVE_LOW = 0, ACTIVE_HIGH = 1 } pin_direction_e;
 
 /**

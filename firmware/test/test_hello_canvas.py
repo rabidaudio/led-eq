@@ -4,8 +4,6 @@ from framework import simulator_test
 
 @simulator_test("HelloCanvas.sv")
 async def test_hello_canvas(dut):
-    await dut.step_reset()
-
     assert dut.r_data.value == 0, "should initialize to zero after reset"
     assert dut.g_data.value == 0
     assert dut.b_data.value == 0

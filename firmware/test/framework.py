@@ -10,7 +10,7 @@ from cocotb.types import Array
 from cocotb_tools.runner import get_runner
 
 # A global list to put runners from all tests
-test_runners = []
+test_runners = {}
 
 
 # A wrapper for cocotb's dut module that adds some helper functions
@@ -30,8 +30,8 @@ class DutWrapper(cocotb.handle.HierarchyObject):
         self._logger = logging.getLogger(dut.__class__.__name__)
         self._logger.setLevel(logging.INFO)
 
-    async def step(self, n=1, pin: str = None, direction=RisingEdge):
-        pin = self._pin_by_name(pin or self._clk_pin)
+    async def step(self, n=1, pin = None, direction=RisingEdge):
+        pin = self._pin_by_name(self._clk_pin) if pin is None else pin
         for _ in range(n):
             await direction(pin)
         await Timer(1, unit="step")  # step one cycle more to let things settle
@@ -65,6 +65,9 @@ class DutWrapper(cocotb.handle.HierarchyObject):
                 res[key] = str(val)
         return res
 
+    def start_parallel(self, task):
+        return cocotb.start_soon(task)
+
     async def generate_clock(self):
         for _ in range(self._total_cycles):
             self._pin_by_name(self._clk_pin).value = 0
@@ -91,14 +94,18 @@ def simulator_module(dut, reset=True, **kwargs):
 def simulator_test(
     path: str,
     module_name: str = None,
+    params: dict = {},
     simulator: str = "icarus",
-    proj_path=None,
+    proj_dir=None,
     timescale=("10ns", "100ps"),
+    reset=True,
+    period=10,
+    total_cycles=250_000,
+    clk_pin="clk",
+    reset_pin="reset",
     **kwargs,
 ):
-    proj_path = (
-        Path(__file__).resolve().parent.parent if proj_path == None else proj_path
-    )
+    proj_dir = Path(__file__).resolve().parent.parent if proj_dir == None else proj_dir
     module_name = (
         os.path.basename(path).removesuffix(".sv")
         if module_name == None
@@ -107,37 +114,55 @@ def simulator_test(
 
     def _decorator(func):
         test_name = func.__name__
+        test_file_name = func.__module__
 
         @cocotb.test(name=test_name, **kwargs)
         @functools.wraps(func)
         async def _test_wrapper(*args, **w_kwargs):
-            with simulator_module(args[0], **kwargs) as wdut:
+            __tracebackhide__ = True  # Hide the traceback when using pytest
+            with simulator_module(
+                args[0],
+                reset=reset,
+                period=period,
+                total_cycles=total_cycles,
+                clk_pin=clk_pin,
+                reset_pin=reset_pin,
+            ) as wdut:
+                if reset:
+                    await wdut.step_reset()
                 return await func(wdut, **w_kwargs)
 
         _test_wrapper.__name__ = test_name
+        _test_wrapper.__tracebackhide__ = True
 
-        def _runner():
-            sources = [proj_path / path]
+        if test_file_name not in test_runners:
 
-            build_dir = proj_path / "build"
+            def _runner():
+                sources = [proj_dir / path]
 
-            runner = get_runner(simulator)
-            runner.build(
-                sources=sources,
-                hdl_toplevel=module_name,
-                timescale=timescale,
-                build_dir=build_dir,
-                always=True,
-                waves=True,
-            )
-            runner.test(
-                hdl_toplevel=module_name,
-                test_module=f"{test_name},",
-                timescale=timescale,
-                waves=True,
-            )
+                build_dir = proj_dir / "build"
 
-        test_runners.append(_runner)
+                runner = get_runner(simulator)
+
+                runner.build(
+                    sources=sources,
+                    hdl_toplevel=module_name,
+                    parameters=params,
+                    timescale=timescale,
+                    build_dir=build_dir,
+                    cwd=proj_dir,
+                    always=True,
+                    waves=True,
+                )
+                runner.test(
+                    hdl_toplevel=module_name,
+                    test_module=f"{test_file_name},",
+                    timescale=timescale,
+                    waves=True,
+                    gui=True,
+                )
+
+            test_runners[test_file_name] = _runner
 
         return _test_wrapper
 

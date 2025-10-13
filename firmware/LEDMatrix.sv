@@ -2,7 +2,6 @@
 `define __LEDDMATRIX__
 
 `include "ClockDivider.sv"
-`include "PixelBus.sv"
 
 `define MAX(a, b) (((``a) > (``b)) ? (``a) : (``b))
 

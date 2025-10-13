@@ -10,5 +10,6 @@
         "mosi",
         "nettype",
         "posedge"
-    ]
+    ],
+    "python.defaultInterpreterPath": "./firmware/.venv/bin/python"
 }

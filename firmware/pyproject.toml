@@ -1,0 +1,31 @@
+[tool.poetry]
+name = "firmware"
+version = "0.1.0"
+description = ""
+authors = ["Julien <julien@rabidaudio.com>"]
+license = "MIT"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.13"
+
+[tool.poetry.group.dev.dependencies]
+cocotb = "^2.0.0"
+numpy = "^2.3.3"
+isort = "^7.0.0"
+black = "^25.9.0"
+
+[tool.poetry.requires-plugins]
+poethepoet = { version = "~0.37.0", extras = ["poetry_plugin"]}
+
+[tool.poe]
+poetry_command = ""
+
+[tool.poe.tasks]
+test = "python3 test/test_runner.py"
+isort = "isort test"
+black = "black test"
+fix = ["isort", "black"]
+_isort_check = "isort test --check --diff"
+_black_check = "black test --check --diff"
+lint = ["_isort_check", "_black_check"]

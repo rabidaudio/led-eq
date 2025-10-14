@@ -65,7 +65,23 @@ module Settings (
                                     added/subtracted? A fixed point scalar value?
     0x09    cc_green[7:0]   rw      Color correction value for the green channel.
     0x0A    cc_blue[7:0]    rw      Color correction value for the blue channel.
-    0x0B    fps[7:0]        ro      Approximate current effective frame rate/4.
+    0x0B    (reserved[7:4])
+    0x0B    bit_pack[3:0]   rw      How many bits per color are transferred over SPI.
+                                    This can be independent of the display color depth.
+                                    For example, SPI can send 8bits/color (first byte
+                                    red, second byte green, etc) but only display
+                                    the 6 most significant bits. If less than 8,
+                                    the data will be assumed to be bit packed starting
+                                    from address 0. For example in the case of 3:
+                                        byte0    byte1    byte2    byte3
+                                        rrrgggbb brrrgggb bbrrrggg bbbrrrgg ...
+                                        pix0,0    pix0,1    pix0,2    pix0,3
+                                    Remaining padding on last byte is ignored.
+                                    0b000: 1 bit/color (3 bit color)
+                                    0b001: 2 bits/color (6 bit color)
+                                    ...
+                                    0b111: 8 bits/color (24 bit color) [default]
+    0x0C    fps[7:0]        ro      Approximate current effective frame rate/4.
                                     Measured after applying `frame_dup` (e.g.
                                     300 refreshes/second with a `frame_dup` of 3
                                     will report 100 fps (0x19)).
@@ -73,12 +89,11 @@ module Settings (
                                     0x01: 8 frames/second
                                     ...
                                     0xFF: 1024 frames/second or beyond
-    0x0C    f_flag[7]       ro      Frame complete flag. Set to `1` when the most
+    0x0D    f_flag[7]       ro      Frame complete flag. Set to `1` when the most
                                     resent frame has completed rendering. Reset
                                     to `0` when any frame data is written.
             frame_cnt[6:0]  ro      Current frame counter. Rolls over every 128
                                     frames.
-    0x0D    [reserved]
     0x0E    [reserved]
     0x0F    [reserved]
     */

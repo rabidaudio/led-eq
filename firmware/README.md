@@ -7,7 +7,14 @@ Project management and testing in Python (using [poetry](https://python-poetry.o
 ```bash
 poetry fix # format code
 poetry test # run test suite
-poetry synth # run synthesizer
+poetry synth top.sv # run synthesizer
+```
+
+### Load flags test program
+
+```bash
+poetry get_flag brazil
+poetry synth -l flags.top.sv
 ```
 
 ## Setup

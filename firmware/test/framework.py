@@ -169,7 +169,6 @@ def simulator_test(
                     test_module=f"{test_file_name},",
                     timescale=timescale,
                     waves=True,
-                    gui=True,
                 )
 
             test_runners[test_file_name] = _runner

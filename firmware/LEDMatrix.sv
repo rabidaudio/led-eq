@@ -107,7 +107,6 @@ module LEDMatrix #(
     output logic [$clog2(BIT_DEPTH-1)-1:0] bitplane_addr,
     output logic [$clog2(SCAN_RATE-1)-1:0] row_addr,
     output logic [$clog2(WIDTH-1)-1:0] pixel_addr,
-    input read_ready,
     input [COLOR_WIDTH-1:0] r_data,
     input [COLOR_WIDTH-1:0] g_data,
     input [COLOR_WIDTH-1:0] b_data,
@@ -134,8 +133,7 @@ module LEDMatrix #(
 
     // Shift state
 
-    // While a shift is happening, we request data from the PixelBus (SHIFTING).
-    // When `read_ready`, the data is shifted out and the next pixel is requested.
+    // While a shift is happening, we request data from the PixelBus (`SHIFTING`).
     // when all the pixels are shifted out, `SHIFT_COMPLETE` goes high.
     enum logic { SHIFTING, SHIFT_COMPLETE } shift_state;
     

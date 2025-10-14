@@ -38,15 +38,6 @@ _isort_check = "isort scripts test --check --diff"
 _black_check = "black scripts test --check --diff"
 lint = ["_isort_check", "_black_check"]
 
-yosis = "yosys -s synth.yosys"
-nextpnr = """
-    nextpnr-ice40 \
-        --up5k --package sg48 \
-        --randomize-seed \
-        --pcf pins.pcf --json build/proj.json \
-        --opt-timing --tmg-ripup \
-        --asc build/proj.asc"""
-icepack = "icepack build/proj.asc build/proj.bin"
-synth = ["yosis", "nextpnr", "icepack"]
-
 get_flag = "python3 scripts/get_flag.py -o build/flag.h.mem"
+
+synth = "python3 scripts/synth.py -b build -p pins.pcf"

@@ -153,11 +153,11 @@ def simulator_test(
                 build_dir = proj_dir / "build"
 
                 runner = get_runner(simulator)
-
                 runner.build(
                     sources=sources,
                     hdl_toplevel=module_name,
                     parameters=params,
+                    build_args=["-DSIMULATION"],
                     timescale=timescale,
                     build_dir=build_dir,
                     cwd=proj_dir,

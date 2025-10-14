@@ -29,7 +29,9 @@ module HelloCanvas #(
 
     (* ram_style = "block" *) logic display [HEIGHT] [WIDTH];
     initial begin
-        $readmempath(".:..");
+        `ifdef SIMULATION
+            $readmempath(".:..");
+        `endif
         $readmemb("hello.b.mem", display);
     end
 

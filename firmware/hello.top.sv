@@ -1,11 +1,11 @@
 `include "ResetGenerator.sv"
 `include "LEDMatrix.sv"
 `include "BrightnessRamp.sv"
-`include "FlagCanvas.sv"
+`include "HelloCanvas.sv"
 
 module top #(
     parameter RESET_AFTER = 'hFFFF,
-    parameter BIT_DEPTH = 8
+    parameter BIT_DEPTH = 1
 ) (
     input clk,
     output logic [15:0] hub_75_o
@@ -23,12 +23,12 @@ module top #(
     logic [1:0] g_data;
     logic [1:0] b_data;
     
-    FlagCanvas cv (
+    HelloCanvas cv (
         .clk(clk),
         .reset(reset),
         
         .req_read(req_read),
-        .bitplane_addr(bitplane_addr),
+        // .bitplane_addr(bitplane_addr),
         .row_addr(row_addr),
         .pixel_addr(pixel_addr),
         .r_data(r_data),
@@ -60,8 +60,7 @@ module top #(
         .b_data(b_data),
 
         .frame_complete(frame_end),
-        // .brightness(brightness),
-        .brightness(4'h03),
+        .brightness(brightness),
 
         .hub_75(hub_75_o)
     );

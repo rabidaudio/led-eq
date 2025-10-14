@@ -12,13 +12,15 @@ def synthesize(module_path, module_name, pins_path, build_dir=None):
     if type(build_dir) == str:
         build_dir = Path(build_dir).resolve()
 
-    synth_path = build_dir / f"{module_name}.yosys"
-    synth_out = build_dir / f"{module_name}.json"
-    asc_out = build_dir / f"{module_name}.asc"
-    bin_out = build_dir / f"{module_name}.bin"
+    build_name = os.path.basename(module_path).removesuffix(".sv")
+
+    synth_path = build_dir / f"{build_name}.yosys"
+    synth_out = build_dir / f"{build_name}.json"
+    asc_out = build_dir / f"{build_name}.asc"
+    bin_out = build_dir / f"{build_name}.bin"
     with open(synth_path, "w") as f:
         f.write(f"read_verilog -sv {module_path}\n")
-        f.write(f"synth_ice40 -top top -json {synth_out}\n")
+        f.write(f"synth_ice40 -top {module_name} -json {synth_out}\n")
     subprocess.run(["yosys", "-s", synth_path], check=True)
     subprocess.run(
         [
@@ -41,6 +43,7 @@ def synthesize(module_path, module_name, pins_path, build_dir=None):
     subprocess.run(["icepack", asc_out, bin_out], check=True)
     return bin_out
 
+
 def load(bin):
     match sys.platform:
         case "darwin":
@@ -50,13 +53,34 @@ def load(bin):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Synthesize a top SystemVerilog module for the iCE40')
-    parser.add_argument("-m", "--module-name", dest="module_name", default="top", help="The name of the module")
-    parser.add_argument("-b", "--build-dir", dest="build_dir", help="Path to directory to use for outputs")
-    parser.add_argument("-p", "--pins", dest="pins_path", help="Path to pin definition file (.pcf)")
-    parser.add_argument('-l', '--load', action='store_true', dest='load', help="Load the resulting synthesis to the iCE40 board")
+    parser = argparse.ArgumentParser(
+        description="Synthesize a top SystemVerilog module for the iCE40"
+    )
+    parser.add_argument(
+        "-m",
+        "--module-name",
+        dest="module_name",
+        default="top",
+        help="The name of the module",
+    )
+    parser.add_argument(
+        "-b",
+        "--build-dir",
+        dest="build_dir",
+        help="Path to directory to use for outputs",
+    )
+    parser.add_argument(
+        "-p", "--pins", dest="pins_path", help="Path to pin definition file (.pcf)"
+    )
+    parser.add_argument(
+        "-l",
+        "--load",
+        action="store_true",
+        dest="load",
+        help="Load the resulting synthesis to the iCE40 board",
+    )
     parser.add_argument("module_path", help="Path to top level module (.sv)")
-    
+
     args = parser.parse_args()
 
     bin = synthesize(

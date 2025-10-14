@@ -2,7 +2,7 @@
 name = "firmware"
 version = "0.1.0"
 description = ""
-authors = ["Julien <julien@rabidaudio.com>"]
+authors = ["Julien Dorothy <julien@rabidaudio.com>"]
 license = "MIT"
 package-mode = false
 
@@ -14,7 +14,7 @@ imageio = "^2.37.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.2"
-# TODO: using custom fork pending PR
+# TODO: using custom fork pending PR https://github.com/cocotb/cocotb/pull/5076
 # cocotb = "^2.0.0"
 cocotb = { git = "git@github.com/rabidaudio/cocotb.git", rev = "fork" }
 numpy = "^2.3.3"

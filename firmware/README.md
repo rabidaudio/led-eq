@@ -10,7 +10,15 @@ poetry test # run test suite
 poetry synth top.sv # run synthesizer
 ```
 
-### Load flags test program
+### Test programs
+
+> Hello World
+
+```bash
+poetry synth -l hello.top.sv
+```
+
+> Country flags
 
 ```bash
 poetry get_flag brazil

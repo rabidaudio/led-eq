@@ -30,18 +30,28 @@ class DutWrapper(cocotb.handle.HierarchyObject):
         self._logger = logging.getLogger(dut.__class__.__name__)
         self._logger.setLevel(logging.INFO)
 
-    async def step(self, n=1, pin = None, direction=RisingEdge):
+    async def step(self, n=1, pin=None, direction=RisingEdge):
         pin = self._pin_by_name(self._clk_pin) if pin is None else pin
         for _ in range(n):
             await direction(pin)
-        await Timer(1, unit="step")  # step one cycle more to let things settle
+        await self.tick()  # step one cycle more to let things settle
+
+    async def tick(self, n=1):
+        await Timer(n, unit="step")
 
     def _pin_by_name(self, name: str):
         return getattr(self._dut, name)
 
-    def set(self, **kwargs):
+    def set_now(self, **kwargs):
         for key, val in kwargs.items():
             self._pin_by_name(key).value = val
+
+    def set(self, **kwargs):
+        async def _wait_set():
+            await self.tick()
+            self.set_now(**kwargs)
+
+        self.start_parallel(_wait_set())
 
     async def step_reset(self):
         await self.step(n=2)

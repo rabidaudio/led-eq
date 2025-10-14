@@ -5,7 +5,7 @@ from framework import simulator_test
 
 @simulator_test("SpiSlaveSimplex.sv", clk_pin="sck")
 async def test_sss_data(dut):
-    dut.set(cs=0)  # active low
+    dut.set_now(cs=0)  # active low
 
     for i in range(100):
         r = random.randint(0, 255)
@@ -23,7 +23,7 @@ async def test_sss_data(dut):
 
 @simulator_test("SpiSlaveSimplex.sv", clk_pin="sck")
 async def test_sss_cs(dut):
-    dut.set(cs=1, mosi=1)
+    dut.set_now(cs=1, mosi=1)
 
     # make sure no bytes come out when cs is high
     await dut.step(n=16)

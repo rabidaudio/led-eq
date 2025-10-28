@@ -16,7 +16,7 @@ imageio = "^2.37.0"
 pytest = "^8.4.2"
 # TODO: using custom fork pending PR https://github.com/cocotb/cocotb/pull/5076
 # cocotb = "^2.0.0"
-cocotb = { git = "git@github.com/rabidaudio/cocotb.git", rev = "fork" }
+cocotb = { git = "git@github.com/cocotb/cocotb.git", rev = "master" }
 numpy = "^2.3.3"
 isort = "^7.0.0"
 black = "^25.9.0"

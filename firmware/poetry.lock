@@ -177,9 +177,9 @@ find_libpython = "*"
 
 [package.source]
 type = "git"
-url = "ssh://git@github.com/rabidaudio/cocotb.git"
-reference = "fork"
-resolved_reference = "5697ac0ad8075e00c8613d457eec7ac009f03b01"
+url = "ssh://git@github.com/cocotb/cocotb.git"
+reference = "master"
+resolved_reference = "bc154e01915a01feb7a64d5ce2c1890bfdb70ead"
 
 [[package]]
 name = "colorama"
@@ -867,4 +867,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.13"
-content-hash = "731691d5e8c68dd253ada44a94be76c73df871dd4c4dc9400247ae7d3dc6b4af"
+content-hash = "8cd6b80403867414f83e012b293426c792f09300da900223437e0649d11acddf"

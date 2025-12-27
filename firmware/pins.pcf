@@ -1,0 +1,20 @@
+set_io clk 35
+
+set_io hub_75_o[0] 25 # r1
+set_io hub_75_o[1] 23 # g1
+set_io hub_75_o[2] 27 # b1
+set_io hub_75_o[3] 26 # gnd
+set_io hub_75_o[4] 31 # r2
+set_io hub_75_o[5] 28 # g2
+set_io hub_75_o[6] 34 # b2
+set_io hub_75_o[7] 32 # gnd
+set_io hub_75_o[8] 37 # a
+set_io hub_75_o[9] 36 # b
+set_io hub_75_o[10] 42 # c
+set_io hub_75_o[11] 38 # gnd
+set_io hub_75_o[12] 44 # clk
+set_io hub_75_o[13] 43 # lat
+set_io hub_75_o[14] 46 # ~oe
+set_io hub_75_o[15] 45 # gnd
+
+set_frequency clk 12

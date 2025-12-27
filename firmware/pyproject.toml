@@ -1,0 +1,43 @@
+[tool.poetry]
+name = "firmware"
+version = "0.1.0"
+description = ""
+authors = ["Julien Dorothy <julien@rabidaudio.com>"]
+license = "MIT"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.13"
+parsel = "^1.10.0"
+requests = "^2.32.5"
+imageio = "^2.37.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.4.2"
+# TODO: using custom fork pending PR https://github.com/cocotb/cocotb/pull/5076
+# cocotb = "^2.0.0"
+cocotb = { git = "git@github.com/cocotb/cocotb.git", rev = "master" }
+numpy = "^2.3.3"
+isort = "^7.0.0"
+black = "^25.9.0"
+
+[tool.poetry.requires-plugins]
+poethepoet = { version = "~0.37.0", extras = ["poetry_plugin"]}
+
+[tool.poe]
+poetry_command = ""
+
+[tool.poe.tasks]
+test = "python3 test/test_runner.py"
+
+isort = "isort scripts test"
+black = "black scripts test"
+fix = ["isort", "black"]
+
+_isort_check = "isort scripts test --check --diff"
+_black_check = "black scripts test --check --diff"
+lint = ["_isort_check", "_black_check"]
+
+get_flag = "python3 scripts/get_flag.py -o build/flag.h.mem"
+
+synth = "python3 scripts/synth.py -b build -p pins.pcf"
